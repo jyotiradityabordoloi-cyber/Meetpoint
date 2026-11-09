@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     # e.g. https://photon.komoot.io (fair use) or a self-hosted instance.
     photon_url: str = ""
 
+    # Journey paths drawn on the map. Google Routes with a key; otherwise OSRM
+    # if OSRM_URL is set (e.g. https://routing.openstreetmap.de, fair use).
+    osrm_url: str = ""
+
     # Approximate visitor location (search bias, first map view). Edge headers
     # (Cloudflare / Vercel / GCP) are read when present; GEOIP_DB_PATH points to
     # a MaxMind GeoLite2-City .mmdb file. DEV_LOCATE_PUBLIC_IP is for local dev.

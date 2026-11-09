@@ -1,38 +1,93 @@
-import { track } from '../api.js'
+import { useRef, useState } from 'react'
+import { photoUrl, track } from '../api.js'
 import {
-  colourFor,
   formatDistance,
   formatMeetTime,
   formatMinutes,
   googleMapsSearchUrl,
-  modeIcon,
   modeLabel,
   regionHeading,
   venueTypeLabel,
 } from '../format.js'
+import Icon, { ModeIcon } from './Icon.jsx'
 
-function TravelStrips({ travel, scaleMax, colours, units }) {
+/** Swipeable photo glimpses of a venue, or a drawn placeholder when there are none. */
+function Glimpse({ name, photos, rank, fairness, label }) {
+  const [index, setIndex] = useState(0)
+  const [failed, setFailed] = useState({})
+  const ref = useRef(null)
+  const usable = (photos || []).filter((p) => !failed[p.name])
+
+  const onScroll = () => {
+    const el = ref.current
+    if (el) setIndex(Math.round(el.scrollLeft / Math.max(1, el.clientWidth)))
+  }
+
+  return (
+    <div className="glimpse">
+      {usable.length > 0 ? (
+        <>
+          <div className="glimpse-track" ref={ref} onScroll={onScroll}>
+            {usable.map((p, i) => (
+              <img
+                key={p.name}
+                src={photoUrl(p.name, 640)}
+                alt={i === 0 ? `Photo of ${name}` : ''}
+                loading="lazy"
+                decoding="async"
+                draggable={false}
+                onError={() => setFailed((f) => ({ ...f, [p.name]: true }))}
+              />
+            ))}
+          </div>
+          {usable.length > 1 && (
+            <div className="glimpse-dots" aria-hidden="true">
+              {usable.map((p, i) => (
+                <span key={p.name} className={i === index ? 'on' : ''} />
+              ))}
+            </div>
+          )}
+          {usable[index]?.attribution && (
+            <span className="glimpse-credit">Photo: {usable[index].attribution}</span>
+          )}
+        </>
+      ) : (
+        <div className="glimpse-placeholder" aria-hidden="true">
+          <span className="glimpse-letter">{label || (name || '?').trim()[0]}</span>
+        </div>
+      )}
+      <span className="rank-badge">{rank}</span>
+      <span className="fair-badge" title="1.00 means everyone travels equally long">
+        Fairness {fairness.toFixed(2)}
+      </span>
+    </div>
+  )
+}
+
+function TravelStrips({ travel, scaleMax, tags, units }) {
+  const longest = Math.max(...travel.map((t) => t.minutes))
   return (
     <ul className="strips">
-      {travel.map((t, i) => {
-        const pct = Math.max(3, Math.min(100, (t.minutes / scaleMax) * 100))
-        const colour = colours[t.member_id] || colourFor(i)
+      {travel.map((t) => {
+        const pct = Math.max(4, Math.min(100, (t.minutes / scaleMax) * 100))
+        const isLongest = travel.length > 1 && t.minutes === longest
         return (
-          <li key={t.member_id}>
+          <li key={t.member_id} className={isLongest ? 'longest' : ''}>
             <span className="strip-name" title={t.name}>
-              <span className="dot" style={{ background: colour }} aria-hidden="true" />
-              {t.name}
+              <span className="avatar sm" aria-hidden="true">
+                {tags[t.member_id] || '?'}
+              </span>
+              <span className="strip-person">{t.name}</span>
             </span>
             <span className="strip-track">
-              <span className="strip-bar" style={{ width: `${pct}%`, background: colour }} />
+              <span className="strip-bar" style={{ width: `${pct}%` }} />
             </span>
             <span className="strip-label">
-              {formatMinutes(t.minutes)}
-              {t.meters != null && <span className="muted"> · {formatDistance(t.meters, units)}</span>}
+              <strong>{formatMinutes(t.minutes)}</strong>
+              {t.meters != null && <span className="dim"> · {formatDistance(t.meters, units)}</span>}
               {t.mode && (
                 <span className="mode-mini" title={modeLabel(t.mode)}>
-                  {' '}
-                  {modeIcon(t.mode)}
+                  <ModeIcon mode={t.mode} size={14} />
                 </span>
               )}
             </span>
@@ -43,16 +98,7 @@ function TravelStrips({ travel, scaleMax, colours, units }) {
   )
 }
 
-function FairnessPill({ value }) {
-  const level = value >= 0.8 ? 'good' : value >= 0.6 ? 'ok' : 'low'
-  return (
-    <span className={`pill ${level}`} title="1.0 means everyone travels equally long">
-      Fairness {value.toFixed(2)}
-    </span>
-  )
-}
-
-export default function Results({ result, colours, selected, onSelect, meetingName }) {
+export default function Results({ result, tags, selected, onSelect, meetingName, journeys }) {
   const units = result.region?.units || 'metric'
   const heading = regionHeading(result.region)
   const meetTime = formatMeetTime(result.meet_at)
@@ -79,11 +125,26 @@ export default function Results({ result, colours, selected, onSelect, meetingNa
     }
   }
 
+  const cardProps = (i) => ({
+    className: i === selected ? 'venue on' : 'venue',
+    onClick: () => onSelect(i),
+    onKeyDown: (e) => (e.key === 'Enter' || e.key === ' ') && onSelect(i),
+    tabIndex: 0,
+    'aria-current': i === selected,
+  })
+
   return (
     <section className="results" aria-live="polite">
       <div className="results-head">
-        <h2>{heading ? `Fair spots near ${heading}` : 'Fair spots for your group'}</h2>
-        {meetTime && <p className="muted small">For {meetTime} (your local time)</p>}
+        <p className="eyebrow">
+          {venues.length ? `${venues.length} fair places to meet` : `${zones.length} fair areas to meet`}
+        </p>
+        <h2>{heading ? `Around ${heading}` : 'For your group'}</h2>
+        {meetTime && (
+          <p className="muted small">
+            <Icon name="clock" size={14} /> For {meetTime} (your local time)
+          </p>
+        )}
         {result.estimated && <span className="pill estimate">Estimated times</span>}
       </div>
 
@@ -99,56 +160,57 @@ export default function Results({ result, colours, selected, onSelect, meetingNa
         <ol className="venues">
           {venues.map((v, i) => (
             <li key={v.id}>
-              <article
-                className={i === selected ? 'venue on' : 'venue'}
-                onClick={() => onSelect(i)}
-                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect(i)}
-                tabIndex={0}
-                aria-current={i === selected}
-              >
-                <header>
-                  <span className="rank">{i + 1}</span>
-                  <div className="venue-title">
-                    <h3>{v.name}</h3>
-                    <p className="muted small">
-                      {venueTypeLabel(v.type)}
-                      {v.rating != null && (
-                        <>
-                          {' · '}★ {v.rating.toFixed(1)} <span>({v.ratings.toLocaleString()})</span>
-                        </>
-                      )}
-                      {v.open_now === true && <span className="open"> · Open now</span>}
-                      {v.open_now === false && <span className="closed"> · Closed now</span>}
+              <article {...cardProps(i)}>
+                <Glimpse name={v.name} photos={v.photos} rank={i + 1} fairness={v.fairness} />
+                <div className="venue-body">
+                  <h3>{v.name}</h3>
+                  <p className="venue-meta">
+                    <span>{venueTypeLabel(v.type)}</span>
+                    {v.rating != null && (
+                      <span className="rating">
+                        <Icon name="star" size={13} /> {v.rating.toFixed(1)}
+                        <span className="dim"> ({v.ratings.toLocaleString()})</span>
+                      </span>
+                    )}
+                    {v.open_now === true && <span>Open now</span>}
+                    {v.open_now === false && <span className="closed">Closed now</span>}
+                  </p>
+                  {v.address && (
+                    <p className="venue-address">
+                      <Icon name="pin" size={13} /> {v.address}
                     </p>
+                  )}
+                  <p className="summary">
+                    Longest trip <strong>{formatMinutes(v.max_minutes)}</strong>
+                    <span className="dim"> · average {formatMinutes(v.mean_minutes)}</span>
+                  </p>
+                  <TravelStrips travel={v.travel} scaleMax={scaleMax} tags={tags} units={units} />
+                  {i === selected && journeys?.status === 'loading' && (
+                    <p className="journey-note">Drawing everyone's route…</p>
+                  )}
+                  <div className="actions">
+                    <a
+                      className="btn primary small"
+                      href={v.maps_url || googleMapsSearchUrl(v.lat, v.lng)}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        track('venue_opened_in_maps', { rank: i + 1 })
+                      }}
+                    >
+                      <Icon name="directions" size={16} /> Open in Google Maps
+                    </a>
+                    <button
+                      className="btn on-dark small"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        share(v)
+                      }}
+                    >
+                      <Icon name="share" size={15} /> Share
+                    </button>
                   </div>
-                  <FairnessPill value={v.fairness} />
-                </header>
-                <p className="summary small">
-                  Longest trip <strong>{formatMinutes(v.max_minutes)}</strong> · average {formatMinutes(v.mean_minutes)}
-                </p>
-                <TravelStrips travel={v.travel} scaleMax={scaleMax} colours={colours} units={units} />
-                <div className="actions">
-                  <a
-                    className="btn primary small"
-                    href={v.maps_url || googleMapsSearchUrl(v.lat, v.lng)}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      track('venue_opened_in_maps', { rank: i + 1 })
-                    }}
-                  >
-                    Open in Google Maps
-                  </a>
-                  <button
-                    className="btn ghost small"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      share(v)
-                    }}
-                  >
-                    Share
-                  </button>
                 </div>
               </article>
             </li>
@@ -156,47 +218,41 @@ export default function Results({ result, colours, selected, onSelect, meetingNa
         </ol>
       ) : (
         <>
-          <p className="muted">These are the fairest areas to meet. Pick a spot inside one of them.</p>
+          <p className="muted small">These are the fairest areas to meet. Pick a spot inside one of them.</p>
           <ol className="venues">
             {zones.map((z, i) => (
               <li key={i}>
-                <article
-                  className={i === selected ? 'venue on' : 'venue'}
-                  onClick={() => onSelect(i)}
-                  tabIndex={0}
-                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect(i)}
-                >
-                  <header>
-                    <span className="rank zone">{i + 1}</span>
-                    <div className="venue-title">
-                      <h3>Fair area {i + 1}</h3>
-                      <p className="muted small">
+                <article {...cardProps(i)}>
+                  <Glimpse name={`Area ${i + 1}`} label={String(i + 1)} photos={[]} rank={i + 1} fairness={z.fairness} />
+                  <div className="venue-body">
+                    <h3>Fair area {i + 1}</h3>
+                    <p className="venue-meta">
+                      <span>
                         {z.lat.toFixed(4)}, {z.lng.toFixed(4)}
-                      </p>
+                      </span>
+                    </p>
+                    <TravelStrips
+                      travel={Object.entries(z.minutes).map(([id, minutes]) => ({
+                        member_id: id,
+                        name: memberName[id] || 'Someone',
+                        minutes,
+                        mode: memberMode[id],
+                      }))}
+                      scaleMax={scaleMax}
+                      tags={tags}
+                      units={units}
+                    />
+                    <div className="actions">
+                      <a
+                        className="btn primary small"
+                        href={googleMapsSearchUrl(z.lat, z.lng)}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Icon name="directions" size={16} /> Open in Google Maps
+                      </a>
                     </div>
-                    <FairnessPill value={z.fairness} />
-                  </header>
-                  <TravelStrips
-                    travel={Object.entries(z.minutes).map(([id, minutes]) => ({
-                      member_id: id,
-                      name: memberName[id] || 'Someone',
-                      minutes,
-                      mode: memberMode[id],
-                    }))}
-                    scaleMax={scaleMax}
-                    colours={colours}
-                    units={units}
-                  />
-                  <div className="actions">
-                    <a
-                      className="btn primary small"
-                      href={googleMapsSearchUrl(z.lat, z.lng)}
-                      target="_blank"
-                      rel="noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      Open in Google Maps
-                    </a>
                   </div>
                 </article>
               </li>

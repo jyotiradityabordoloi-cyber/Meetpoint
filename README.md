@@ -1,11 +1,11 @@
 # MeetPoint
 
 [![CI](https://github.com/jyotiradityabordoloi-cyber/Meetpoint/actions/workflows/ci.yml/badge.svg)](https://github.com/jyotiradityabordoloi-cyber/Meetpoint/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-0f766e.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-d9541e.svg)](LICENSE)
 ![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
 ![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
-![Leaflet](https://img.shields.io/badge/Leaflet-1.9-199900?logo=leaflet&logoColor=white)
+![Leaflet](https://img.shields.io/badge/Leaflet-1.9-111111?logo=leaflet&logoColor=white)
 
 **Find a meeting place that is fair for everyone in a group to reach, in any city.**
 
@@ -14,7 +14,7 @@
   &nbsp;
   <img src="docs/images/screenshot-mobile.jpg" alt="MeetPoint on a phone: map on top, ranked venues with travel bars below" width="19%">
 </p>
-<p align="center"><sub>Screenshots use the offline demo map client (<code>scripts/dev_fake_maps.py</code>), so venue names, ratings and the "Demo City" label are made up. With a Google Maps key you get real venues and live travel times.</sub></p>
+<p align="center"><sub>Screenshots use the demo server (<code>scripts/dev_fake_maps.py</code>). Place search, area names and journey paths are real OpenStreetMap data. Venue names, ratings and travel times are made up, and venue cards show a drawn placeholder where Google photos would go. With a Google Maps key you get real venues, photos and live travel times.</sub></p>
 
 MeetPoint is a responsive web app. An organiser creates a meetup, people add where they're starting from (address, GPS or a pin on the map, or through an invite link), and **Find meeting point** returns five ranked venues. Each venue shows one bar per person on a shared time scale, so you can see straight away whether an option makes one person travel much longer than the rest.
 
@@ -111,7 +111,7 @@ npm install
 npm run dev                 # http://localhost:5173 (proxies /api to :8000)
 ```
 
-**No Google key yet?** The app still runs: travel times are estimates and the fairest zones are shown instead of venues. To try the whole app locally, run the demo API (development only). It uses real place search and real area names from OpenStreetMap (Photon), finds your city from your IP address, and makes up venues and travel times:
+**No Google key yet?** The app still runs: travel times are estimates and the fairest zones are shown instead of venues. To try the whole app locally, run the demo API (development only). It uses real place search, area names and journey paths from OpenStreetMap (Photon and OSRM), finds your city from your IP address, and makes up venues and travel times:
 
 ```bash
 cd src/backend
@@ -120,7 +120,7 @@ python scripts/dev_fake_maps.py
 
 ### Google Maps Platform key
 
-1. In Google Cloud, enable **Routes API**, **Places API (New)** (used for venues and for search-as-you-type) and **Geocoding API** for a project with billing.
+1. In Google Cloud, enable **Routes API** (travel times and journey paths), **Places API (New)** (venues, photos and search-as-you-type) and **Geocoding API** for a project with billing.
 2. Create an API key and restrict it to those three APIs (and to your server's IPs in production).
 3. Put it in `src/backend/.env` as `GOOGLE_MAPS_API_KEY=...`.
 
@@ -152,6 +152,8 @@ All errors use one shape: `{"detail": {"code": "ADDRESS_NOT_FOUND", "message": "
 | `GET /api/geocode?q=` | free text, any country | 200 up to 5 matches | 502, 503 |
 | `GET /api/autocomplete?q=&lat=&lng=&session=` | 2+ characters; optional point to rank results near | 200 `{provider, suggestions[]}` | 502 `SEARCH_FAILED`, 503 `SEARCH_UNAVAILABLE` |
 | `GET /api/places/{id}?session=` | a Google suggestion id | 200 `{label, lat, lng}` | 404 `PLACE_NOT_FOUND` |
+| `POST /api/groups/{id}/journeys` | `lat, lng` of the venue | 200 `{provider, to, journeys[{member_id, mode, from, path, minutes, meters}]}`; `path` is null when no route (draw a curve) | 404, 422, 429 |
+| `GET /api/photos?name=&w=` | a Places photo name from a result | 302 to the image | 404 `PHOTO_NOT_FOUND`, 422, 502 |
 | `GET /api/locate` | | 200 `{located, lat, lng, city, country_code, source}` (city-level, rounded) | |
 | `GET /health` | | `{ok, maps_configured, search}` | |
 
@@ -174,11 +176,18 @@ All settings are environment variables. See [src/backend/.env.example](src/backe
 ## Tests
 
 ```bash
-cd src/backend && pytest -q       # 69 tests: geometry, engine, Google client, search, IP location, HTTP API
+cd src/backend && pytest -q       # 79 tests: geometry, engine, Google client, search, IP location, journeys, photos, HTTP API
 cd src/frontend && npm test       # formatting / units / time-zone helpers
 ```
 
 The engine tests run the full pipeline in 7 cities on 5 continents against a fake map client. That client checks Google's route-matrix element limits on every call, so a change that would break them fails the tests. Every fallback and every edge case from the PRD has a test.
+
+## Journeys, photos and design
+
+- **Journey paths:** select a venue and the map draws each person's route to it. The route draws itself in, then small dots flow along it toward the venue. With a Google key the routes come from Google Routes (real roads and transit lines). Without one, set `OSRM_URL` for OpenStreetMap routing (car, bike, foot). Trips with no route are drawn as a smooth curve. Routes are fetched only when someone opens a venue, and are cached.
+- **Venue photos:** up to three Google Places photos per venue, swipeable, with the photographer credited. They load through `/api/photos`, which redirects to Google's image URL, so the API key never reaches the browser.
+- **Three colours:** cream `#f3eee3`, black `#111111` and burnt orange `#d9541e`, plus transparent shades of those three. The map tiles keep their normal colours. People are told apart by initials, the longest trip in each venue is orange, and every icon is a single-colour line icon. Headings use DM Serif Display, body text uses DM Sans.
+- **Motion:** the draw-in, flowing dots, travel bars growing and the venue pulse all turn off when the system's *reduce motion* setting is on.
 
 ## Search and link previews
 

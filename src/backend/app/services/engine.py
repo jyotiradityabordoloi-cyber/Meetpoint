@@ -416,6 +416,7 @@ async def find_meeting_point(
                         "ratings": p.ratings,
                         "open_now": p.open_now,
                         "maps_url": p.maps_url,
+                        "photos": list(p.photos),
                         "lat": round(p.lat, 6),
                         "lng": round(p.lng, 6),
                         "zone": v["zone_index"],

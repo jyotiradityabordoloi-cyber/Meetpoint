@@ -10,6 +10,7 @@ from fastapi import Request
 from .config import Settings
 from .errors import ApiError
 from .services.google import GoogleMapClient, MapClient
+from .services.routes import GoogleRoutes, JourneyRouter, OsrmRoutes
 from .services.search import GooglePlacesSearch, PhotonSearch, SearchProvider
 
 
@@ -40,6 +41,19 @@ async def get_search(request: Request) -> AsyncIterator[SearchProvider | None]:
     elif settings.photon_url:
         async with httpx.AsyncClient(timeout=httpx.Timeout(5.0, connect=3.0)) as http:
             yield PhotonSearch(settings.photon_url, http)
+    else:
+        yield None
+
+
+async def get_router(request: Request) -> AsyncIterator[JourneyRouter | None]:
+    """Google Routes with a key; OSRM if configured; else None (client draws curves)."""
+    settings: Settings = request.app.state.settings
+    if settings.maps_configured:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(8.0, connect=3.0)) as http:
+            yield GoogleRoutes(settings.google_maps_api_key, http)
+    elif settings.osrm_url:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(8.0, connect=3.0)) as http:
+            yield OsrmRoutes(settings.osrm_url, http)
     else:
         yield None
 

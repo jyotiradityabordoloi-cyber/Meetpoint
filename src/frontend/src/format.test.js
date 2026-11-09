@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   centreOf,
-  colourFor,
   formatDistance,
   formatMinutes,
+  initials,
   isoToLocalInput,
   localInputToIso,
+  memberTags,
   regionHeading,
 } from './format.js'
 
@@ -30,15 +31,25 @@ describe('format', () => {
     expect(isoToLocalInput(iso)).toBe('2030-05-01T19:30')
   })
 
-  it('builds region heading and colours', () => {
+  it('builds region heading', () => {
     expect(regionHeading({ area: 'Avenidas Novas', locality: 'Lisboa' })).toBe('Avenidas Novas, Lisboa')
     expect(regionHeading({ area: null, locality: null })).toBe(null)
-    expect(colourFor(0)).not.toBe(colourFor(1))
-    expect(colourFor(12)).toBe(colourFor(0))
   })
 
   it('finds the centre used to rank search suggestions', () => {
     expect(centreOf([])).toBe(null)
     expect(centreOf([{ lat: 10, lng: 20 }, { lat: 12, lng: 22 }])).toEqual({ lat: 11, lng: 21 })
+  })
+
+  it('tells people apart by initials', () => {
+    expect(initials('Sam')).toBe('SA')
+    expect(initials('Lerato Mokoena')).toBe('LM')
+    expect(initials('  ')).toBe('?')
+    const tags = memberTags([
+      { id: 'a', name: 'Sam Ali' },
+      { id: 'b', name: 'Sara Ahmed' },
+      { id: 'c', name: 'Dev' },
+    ])
+    expect(tags).toEqual({ a: 'SA', b: 'SA2', c: 'DE' })
   })
 })

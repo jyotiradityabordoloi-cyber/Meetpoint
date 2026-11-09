@@ -64,6 +64,12 @@ export const api = {
   place: (id, session) =>
     request('GET', `/api/places/${encodeURIComponent(id)}${session ? `?session=${encodeURIComponent(session)}` : ''}`),
   locate: () => request('GET', '/api/locate'),
+  journeys: (id, to) => request('POST', `/api/groups/${encodeURIComponent(id)}/journeys`, to),
+}
+
+// Venue photo through the API proxy (the Google key never reaches the browser).
+export function photoUrl(name, width = 480) {
+  return `${BASE}/api/photos?name=${encodeURIComponent(name)}&w=${width}`
 }
 
 // Minimal client-side event hook for the PRD metrics. Pushes to

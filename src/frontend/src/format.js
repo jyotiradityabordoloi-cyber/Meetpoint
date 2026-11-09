@@ -1,30 +1,38 @@
 // Labels, colours and unit formatting. Units come from the result's region
 // (km or miles); numbers use the viewer's locale.
 
-export const MEMBER_COLOURS = [
-  '#2563eb', '#db2777', '#ea580c', '#16a34a', '#9333ea',
-  '#0891b2', '#ca8a04', '#dc2626', '#4f46e5', '#059669',
-  '#c026d3', '#65a30d',
-]
+// People are told apart by initials, not colours: the UI uses only three
+// colours (cream, black, burnt orange).
+export function initials(name) {
+  const words = String(name || '?').trim().split(/\s+/).filter(Boolean)
+  if (!words.length) return '?'
+  const a = words[0][0] || '?'
+  const b = words.length > 1 ? words[words.length - 1][0] : words[0][1] || ''
+  return (a + b).toUpperCase()
+}
 
-export function colourFor(index) {
-  return MEMBER_COLOURS[index % MEMBER_COLOURS.length]
+// Unique tags for a member list: "SA", "SA2" when two people share initials.
+export function memberTags(members) {
+  const seen = {}
+  const tags = {}
+  for (const m of members) {
+    const base = initials(m.name)
+    seen[base] = (seen[base] || 0) + 1
+    tags[m.id] = seen[base] > 1 ? `${base}${seen[base]}` : base
+  }
+  return tags
 }
 
 export const MODES = [
-  { id: 'DRIVE', label: 'Car', short: 'Car', icon: '🚗' },
-  { id: 'TWO_WHEELER', label: 'Two-wheeler', short: '2-wheeler', icon: '🛵' },
-  { id: 'TRANSIT', label: 'Public transport', short: 'Transit', icon: '🚆' },
-  { id: 'WALK', label: 'Walk', short: 'Walk', icon: '🚶' },
-  { id: 'BICYCLE', label: 'Cycle', short: 'Cycle', icon: '🚲' },
+  { id: 'DRIVE', label: 'Car', short: 'Car' },
+  { id: 'TWO_WHEELER', label: 'Two-wheeler', short: '2-wheeler' },
+  { id: 'TRANSIT', label: 'Public transport', short: 'Transit' },
+  { id: 'WALK', label: 'Walk', short: 'Walk' },
+  { id: 'BICYCLE', label: 'Cycle', short: 'Cycle' },
 ]
 
 export function modeLabel(id) {
   return MODES.find((m) => m.id === id)?.label ?? id
-}
-
-export function modeIcon(id) {
-  return MODES.find((m) => m.id === id)?.icon ?? '•'
 }
 
 // Each chip maps to one or more Places (New) type ids.

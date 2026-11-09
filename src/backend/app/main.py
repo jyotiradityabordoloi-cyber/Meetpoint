@@ -10,8 +10,9 @@ from .db import init_db
 from .deps import RateLimiter
 from .errors import install_error_handlers
 from .purge import purge_old_groups
-from .routers import groups, meeting, places
+from .routers import groups, journeys, meeting, places
 from .services.locate import DevPublicIpLocator, GeoIpDb
+from .services.routes import RouteCache
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("meetpoint")
@@ -25,6 +26,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.geocode_limiter = RateLimiter(settings.rate_limit_per_minute * 6)
     # Typing sends a request every few keystrokes (debounced in the client).
     app.state.autocomplete_limiter = RateLimiter(settings.rate_limit_per_minute * 18)
+    app.state.journeys_limiter = RateLimiter(settings.rate_limit_per_minute * 6)
+    app.state.photo_limiter = RateLimiter(settings.rate_limit_per_minute * 30)
+    app.state.route_cache = RouteCache()
     app.state.geoip = GeoIpDb(settings.geoip_db_path)
     app.state.dev_locator = DevPublicIpLocator()
 
@@ -55,6 +59,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(groups.router)
     app.include_router(meeting.router)
     app.include_router(places.router)
+    app.include_router(journeys.router)
 
     @app.get("/health")
     @app.get("/api/health")

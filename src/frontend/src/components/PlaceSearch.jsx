@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { api, ApiError } from '../api.js'
+import Icon from './Icon.jsx'
 
 const MIN_CHARS = 2
 const DEBOUNCE_MS = 220
@@ -116,10 +117,7 @@ export default function PlaceSearch({ bias, biasLabel, onPick, disabled, autoFoc
     <div className={showList ? 'place-search open' : 'place-search'}>
       <div className={`search-box${loading ? ' loading' : ''}`}>
         <span className="search-icon" aria-hidden="true">
-          <svg viewBox="0 0 20 20" width="16" height="16">
-            <circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" strokeWidth="2" />
-            <path d="M13 13l4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
+          <Icon name="search" size={17} />
         </span>
         <input
           ref={inputRef}
@@ -156,7 +154,7 @@ export default function PlaceSearch({ bias, biasLabel, onPick, disabled, autoFoc
               inputRef.current?.focus()
             }}
           >
-            ×
+            <Icon name="close" size={14} />
           </button>
         )}
       </div>
@@ -175,7 +173,7 @@ export default function PlaceSearch({ bias, biasLabel, onPick, disabled, autoFoc
               onClick={() => pick(s)}
             >
               <span className="pin-glyph" aria-hidden="true">
-                📍
+                <Icon name="pin" size={16} />
               </span>
               <span className="suggestion-text">
                 <strong>{s.main}</strong>

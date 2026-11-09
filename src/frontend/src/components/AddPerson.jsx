@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ApiError } from '../api.js'
-import { MODES, modeIcon, modeLabel } from '../format.js'
+import { MODES, modeLabel } from '../format.js'
+import Icon, { ModeIcon } from './Icon.jsx'
 import PlaceSearch from './PlaceSearch.jsx'
 
 /**
@@ -92,13 +93,16 @@ export default function AddPerson({
         </label>
         <label className="field mode-pick" title="How this person travels">
           <span className="sr-only">Travels by</span>
+          <span className="mode-pick-icon" aria-hidden="true">
+            <ModeIcon mode={mode || groupMode} size={17} />
+          </span>
           <select value={mode} onChange={(e) => setMode(e.target.value)}>
             <option value="">
-              {modeIcon(groupMode)} Group ({modeLabel(groupMode)})
+              Same as group ({modeLabel(groupMode)})
             </option>
             {MODES.map((m) => (
               <option key={m.id} value={m.id}>
-                {m.icon} {m.label}
+                {m.label}
               </option>
             ))}
           </select>
@@ -107,7 +111,7 @@ export default function AddPerson({
 
       {draft ? (
         <div className="chosen" role="status">
-          <span aria-hidden="true">{draft.source === 'gps' ? '🎯' : '📍'}</span>
+          <Icon name={draft.source === 'gps' ? 'target' : 'pin'} size={18} />
           <span className="chosen-label">{draft.label}</span>
           <button type="button" className="link small" onClick={() => onDraft(null)}>
             Change
@@ -122,7 +126,7 @@ export default function AddPerson({
           )}
           <div className="alt-actions">
             <button type="button" className="btn ghost small" onClick={locate} disabled={busy}>
-              <span aria-hidden="true">🎯</span> Use my location
+              <Icon name="target" size={16} /> Use my location
             </button>
             <button
               type="button"
@@ -130,7 +134,7 @@ export default function AddPerson({
               aria-pressed={pickMode}
               onClick={() => onPickMode(!pickMode)}
             >
-              <span aria-hidden="true">🗺️</span> {pickMode ? 'Tap the map…' : 'Pick on map'}
+              <Icon name="map" size={16} /> {pickMode ? 'Tap the map…' : 'Pick on map'}
             </button>
           </div>
         </>

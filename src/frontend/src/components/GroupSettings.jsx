@@ -1,10 +1,11 @@
 import { useId } from 'react'
-import { MODES, VENUE_GROUPS, formatMeetTime, isoToLocalInput, localInputToIso, modeIcon, modeLabel } from '../format.js'
+import { MODES, VENUE_GROUPS, formatMeetTime, isoToLocalInput, localInputToIso, modeLabel } from '../format.js'
+import Icon, { ModeIcon } from './Icon.jsx'
 
 function summary(settings) {
   const types = new Set(settings.venue_types || [])
   const places = VENUE_GROUPS.filter((g) => g.types.some((t) => types.has(t))).map((g) => g.label)
-  const parts = [`${modeIcon(settings.travel_mode)} ${modeLabel(settings.travel_mode)}`]
+  const parts = [modeLabel(settings.travel_mode)]
   const when = formatMeetTime(settings.meet_at)
   if (when) parts.push(when)
   parts.push(places.length ? places.join(', ') : 'No place types')
@@ -31,7 +32,9 @@ export default function GroupSettings({ settings, onChange, collapsed, onToggle 
       <div className="card settings-summary">
         <div className="summary-text">
           <h2>{settings.name?.trim() || 'Our meetup'}</h2>
-          <p className="muted small">{summary(settings)}</p>
+          <p className="muted small summary-line">
+            <ModeIcon mode={settings.travel_mode} size={15} /> {summary(settings)}
+          </p>
         </div>
         <button type="button" className="btn ghost small" onClick={onToggle} aria-expanded="false" aria-controls={bodyId}>
           Edit
@@ -76,7 +79,7 @@ export default function GroupSettings({ settings, onChange, collapsed, onToggle 
               onClick={() => onChange({ travel_mode: m.id })}
             >
               <span className="mode-icon" aria-hidden="true">
-                {m.icon}
+                <ModeIcon mode={m.id} size={22} />
               </span>
               <span className="mode-text">{m.short}</span>
             </button>
@@ -117,7 +120,7 @@ export default function GroupSettings({ settings, onChange, collapsed, onToggle 
                 className={on ? 'chip on' : 'chip'}
                 onClick={() => toggleGroup(g)}
               >
-                {on && <span aria-hidden="true">✓ </span>}
+                {on && <Icon name="check" size={14} strokeWidth={2.4} />}
                 {g.label}
               </button>
             )

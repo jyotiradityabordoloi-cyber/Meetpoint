@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, ApiError, track } from './api.js'
-import { centreOf, colourFor } from './format.js'
+import { centreOf, memberTags } from './format.js'
 import GroupSettings from './components/GroupSettings.jsx'
 import People from './components/People.jsx'
 import AddPerson from './components/AddPerson.jsx'
@@ -284,11 +284,36 @@ export default function App() {
     invalidate()
   }, [invalidate])
 
-  const colours = useMemo(() => {
-    const map = {}
-    members.forEach((m, i) => (map[m.id] = colourFor(i)))
-    return map
-  }, [members])
+  const tags = useMemo(() => memberTags(members), [members])
+
+  // Everyone's route to the selected venue (or fair area), for the map.
+  const [journeys, setJourneys] = useState(null) // {key, status: 'loading'|'ready'|'error', data}
+  const journeyCache = useRef(new Map())
+  useEffect(() => {
+    const target = result ? (result.venues?.length ? result.venues[selected] : result.zones?.[selected]) : null
+    if (!groupId || !target) {
+      setJourneys(null)
+      return
+    }
+    const key = `${result.id}:${target.lat},${target.lng}`
+    const hit = journeyCache.current.get(key)
+    if (hit) {
+      setJourneys({ key, status: 'ready', data: hit })
+      return
+    }
+    let live = true
+    setJourneys({ key, status: 'loading', data: null })
+    api
+      .journeys(groupId, { lat: target.lat, lng: target.lng })
+      .then((data) => {
+        journeyCache.current.set(key, data)
+        if (live) setJourneys({ key, status: 'ready', data })
+      })
+      .catch(() => live && setJourneys({ key, status: 'error', data: null }))
+    return () => {
+      live = false
+    }
+  }, [groupId, result, selected])
 
   // Page title per meetup, and keep private meetup links (?g=...) out of
   // search results: they contain people's starting points.
@@ -334,7 +359,11 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <span className="logo" aria-hidden="true" />
+          <svg className="logo" viewBox="0 0 64 64" aria-hidden="true">
+            <circle cx="32" cy="32" r="30" fill="currentColor" />
+            <circle cx="32" cy="32" r="18" fill="none" stroke="var(--cream)" strokeWidth="3" strokeDasharray="5 5" />
+            <circle cx="32" cy="32" r="8" fill="var(--orange)" />
+          </svg>
           <div>
             <h1>MeetPoint</h1>
             <p className="tagline">A meeting place that's fair for everyone to reach</p>
@@ -364,7 +393,7 @@ export default function App() {
         <section className="map-wrap" aria-label="Map">
           <MapView
             members={members}
-            colours={colours}
+            tags={tags}
             result={result}
             selected={selected}
             onSelect={setSelected}
@@ -372,6 +401,7 @@ export default function App() {
             approx={approx}
             pickMode={pickMode}
             onMapClick={onMapClick}
+            journeys={journeys}
           />
         </section>
 
@@ -409,7 +439,7 @@ export default function App() {
                   <h2>People</h2>
                   <span className="muted">{members.length} / 25</span>
                 </div>
-                <People members={members} colours={colours} groupMode={settings.travel_mode} onRemove={removeMember} />
+                <People members={members} tags={tags} groupMode={settings.travel_mode} onRemove={removeMember} />
                 {members.length < 25 && (
                   <AddPerson
                     groupMode={settings.travel_mode}
@@ -452,8 +482,9 @@ export default function App() {
                 <div ref={resultsRef} className="results-anchor">
                 <Results
                   result={result}
-                  colours={colours}
+                  tags={tags}
                   selected={selected}
+                  journeys={journeys}
                   onSelect={setSelected}
                   meetingName={settings.name}
                 />

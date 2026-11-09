@@ -35,8 +35,11 @@ PLACES_FIELD_MASK = ",".join(
         "primaryType",
         "shortFormattedAddress",
         "types",
+        "photos",
     )
 )
+MAX_PHOTOS = 3
+PHOTO_URL = "https://places.googleapis.com/v1/{name}/media"
 ROAD_MODES = {"DRIVE", "TWO_WHEELER"}
 
 
@@ -69,6 +72,8 @@ class Place:
     maps_url: str | None
     type: str | None
     address: str | None
+    # [{"name": "places/../photos/..", "attribution": "Jane D."}], at most MAX_PHOTOS
+    photos: tuple = ()
 
 
 @dataclass(frozen=True)
@@ -109,6 +114,19 @@ def chunk_matrix(n_orig: int, n_dest: int, limit: int) -> list[tuple[range, rang
         for d in range(0, n_dest, dest_block):
             blocks.append((range(o, min(o + orig_block, n_orig)), range(d, min(d + dest_block, n_dest))))
     return blocks
+
+
+def _photos(raw) -> tuple:
+    out = []
+    for ph in raw or []:
+        name = ph.get("name")
+        if not name:
+            continue
+        authors = [a.get("displayName") for a in ph.get("authorAttributions") or [] if a.get("displayName")]
+        out.append({"name": name, "attribution": ", ".join(authors) or None})
+        if len(out) >= MAX_PHOTOS:
+            break
+    return tuple(out)
 
 
 def _rfc3339(dt: datetime) -> str:
@@ -241,9 +259,26 @@ class GoogleMapClient:
                     maps_url=p.get("googleMapsUri"),
                     type=p.get("primaryType") or next(iter(p.get("types") or []), None),
                     address=p.get("shortFormattedAddress"),
+                    photos=_photos(p.get("photos")),
                 )
             )
         return places
+
+    async def photo_uri(self, name: str, max_width: int) -> str | None:
+        """Short-lived image URL for a Places photo (no API key in it)."""
+        try:
+            r = await self._http.get(
+                PHOTO_URL.format(name=name),
+                params={"maxWidthPx": max_width, "skipHttpRedirect": "true"},
+                headers={"X-Goog-Api-Key": self._key},
+            )
+        except httpx.HTTPError as e:
+            raise GoogleError("network", type(e).__name__) from e
+        if r.status_code == 404:
+            return None
+        if r.status_code >= 400:
+            raise GoogleError(_kind_for_status(r.status_code, r.text[:300]), r.text[:300], r.status_code)
+        return (r.json() or {}).get("photoUri")
 
     # ---- Geocoding -----------------------------------------------------
     async def _geocode(self, params: dict) -> list[GeocodeResult]:

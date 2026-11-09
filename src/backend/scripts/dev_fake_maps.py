@@ -5,6 +5,8 @@
   your own instance, or PHOTON_URL="" to work fully offline.
 - Travel times come from straight-line distance and venues are made up
   (the same fake map client the tests use), anywhere in the world.
+- Journey paths on the map follow real roads via OSRM (OpenStreetMap routing,
+  https://routing.openstreetmap.de, fair use). Set OSRM_URL="" to draw curves instead.
 - Your approximate location (for search ranking and the first map view) is
   looked up from this machine's public IP. Set DEV_LOCATE_PUBLIC_IP=false to stop.
 
@@ -26,13 +28,15 @@ import httpx  # noqa: E402
 import uvicorn  # noqa: E402
 
 from app.config import Settings  # noqa: E402
-from app.deps import get_maps, get_search  # noqa: E402
+from app.deps import get_maps, get_router, get_search  # noqa: E402
 from app.main import create_app  # noqa: E402
 from app.services.google import GeocodeResult, GoogleError  # noqa: E402
+from app.services.routes import OsrmRoutes  # noqa: E402
 from app.services.search import PhotonSearch  # noqa: E402
 from tests.fakes import FakeMapClient  # noqa: E402
 
 PHOTON_URL = os.environ.get("PHOTON_URL", "https://photon.komoot.io")
+OSRM_URL = os.environ.get("OSRM_URL", "https://routing.openstreetmap.de")
 
 
 class DemoMapClient(FakeMapClient):
@@ -86,6 +90,15 @@ def build():
 
     app.dependency_overrides[get_maps] = demo_maps
     app.dependency_overrides[get_search] = demo_search
+
+    async def demo_router():
+        if not OSRM_URL:
+            yield None
+            return
+        async with httpx.AsyncClient(timeout=httpx.Timeout(8.0, connect=3.0)) as http:
+            yield OsrmRoutes(OSRM_URL, http)
+
+    app.dependency_overrides[get_router] = demo_router
     return app
 
 
