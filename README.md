@@ -1,0 +1,186 @@
+# MeetPoint
+
+**Find a meeting place that is fair for everyone in a group to reach, in any city.**
+
+MeetPoint is a responsive web app. An organiser creates a meetup, people add where they're starting from (address, GPS or a pin on the map, or through an invite link), and **Find meeting point** returns five ranked venues. Each venue shows one bar per person on a shared time scale, so you can see straight away whether an option makes one person travel much longer than the rest.
+
+The ranking is based on how long each person's trip takes, not on straight-line distance. It favours places where the longest trip is short and trip times are even across the group. It works wherever Google Maps Platform has coverage, with no per-city setup.
+
+- Product requirements: [docs/prd.md](docs/prd.md)
+- Phase-wise implementation plan: [docs/implementation.md](docs/implementation.md)
+
+---
+
+## How it works
+
+```
+Validate ─► Centre ─► Zones ─► Zone matrix ─► Score ─► Venues ─► Venue matrix ─► Rank top 5
+2–25 people  geometric  20 points  per mode,       S = 0.5·max   Places Nearby   traffic-aware   0.7·norm(S)
+             median     on 2 rings traffic-unaware   + 0.3·σ     800→1.5→3 km    meeting time    + 0.3·(1−Q)
+             (sphere)                                + 0.2·mean
+```
+
+1. **Fair centre**: the geometric median of everyone's starting point, found with Weiszfeld's algorithm on the unit sphere. One person who lives far away doesn't pull it toward them the way an average point would. It also stays correct at any latitude and across the antimeridian.
+2. **Candidate zones**: the centre, 6 points on a ring at r/2, 12 points on a ring at r, and the centroid, where `r = clamp(0.25 × group spread, 0.5 km, 10 km)`. The number of zones is reduced when needed so each route-matrix request stays within Google's limits (625 elements, or 100 for transit).
+3. **Travel times**: one route-matrix request per travel mode in use. Zones that anyone can't reach (water, no service) are dropped.
+4. **Fairness score**: `S = 0.5·max + 0.3·σ + 0.2·mean` in minutes, lower is better. Trips of 20/20/20 minutes score 14.0. Trips of 5/10/45 minutes (same total) score 31.8. The app also shows a fairness index, `1 − σ/mean`.
+5. **Venues**: Places searches around the 3 fairest zones, which must be at least 0.4·r apart. Venue quality is `Q = 0.6·(Bayesian rating/5) + 0.25·open-now + 0.15·closeness to the zone`, so a 5.0 rating from 3 reviews doesn't beat a 4.6 from 2,000.
+6. **Final rank**: the 10 best venues get traffic-aware travel times for every person, then `Final = 0.7·normalised S + 0.3·(1 − Q)`. The 5 lowest are returned.
+
+**Fallbacks** (it degrades rather than failing):
+
+| Failure | What happens |
+|---|---|
+| No Google key | Distance-based estimates; fairest zones shown, no venues |
+| Routes API error | `distance × 1.3` at a typical speed for the mode; result marked *estimated* |
+| Two-wheeler not offered in the country | Retried as driving, with a notice |
+| No venues found or Places API error | Fairest zones shown instead |
+| People more than 100 km apart | Warning; walking, cycling and transit switch to driving |
+
+**Bounded cost per search** (single mode): 2 route-matrix requests (chunked if needed), at most 9 Places calls and 1 reverse geocode. The tests check these limits on every call.
+
+## Tech stack
+
+| Part | Technology |
+|---|---|
+| Web client | React 18, Vite 5, Leaflet 1.9 + react-leaflet 4, OpenStreetMap tiles |
+| API | Python 3.12+, FastAPI, Pydantic v2, httpx (async) |
+| Engine | `src/backend/app/services/engine.py`: plain Python, no HTTP or DB imports |
+| Database | PostgreSQL 16 via SQLAlchemy 2 (SQLite for local dev) |
+| External | Google Routes API, Places API (New), Geocoding API (server-side only) |
+
+## Project layout
+
+```
+docs/                     PRD and implementation plan
+src/
+  backend/
+    app/
+      main.py             app factory, CORS, /health, start-up purge
+      config.py           every tunable value, from env vars
+      routers/            groups & members, meeting-point, geocode proxy
+      services/
+        geo.py            spherical geometry (haversine, Weiszfeld median, rings)
+        engine.py         meeting-point pipeline, scoring, fallbacks
+        google.py         async Routes / Places (New) / Geocoding client
+        region.py         area, city, country, km vs miles
+      purge.py            deletes groups older than the retention period
+    tests/                geometry, engine (7 cities, 5 continents), Google client, API
+    scripts/dev_fake_maps.py   run the API with an offline fake map client (UI dev only)
+  frontend/
+    src/App.jsx           state, invite link (?g=<id>), lazy group creation
+    src/components/       GroupSettings, People, AddPerson, Results, MapView
+    src/api.js, format.js fetch + error codes; units, colours, labels
+  docker-compose.yml      postgres + api + web (nginx)
+```
+
+## Quick start (local)
+
+Requirements: Python 3.12+ and Node 20+.
+
+### 1. Backend
+
+```bash
+cd src/backend
+python -m venv .venv
+# Windows: .venv\Scripts\activate    macOS/Linux: source .venv/bin/activate
+pip install -e ".[dev]"
+cp .env.example .env        # then set GOOGLE_MAPS_API_KEY (optional, see below)
+uvicorn app.main:create_app --factory --reload --port 8000
+```
+
+### 2. Frontend
+
+```bash
+cd src/frontend
+npm install
+npm run dev                 # http://localhost:5173 (proxies /api to :8000)
+```
+
+**No Google key yet?** The app still runs: travel times are estimates and the fairest zones are shown instead of venues. To try the full venue UI offline, run the API with the synthetic map client the tests use (development only):
+
+```bash
+cd src/backend
+python scripts/dev_fake_maps.py
+```
+
+### Google Maps Platform key
+
+1. In Google Cloud, enable **Routes API**, **Places API (New)** and **Geocoding API** for a project with billing.
+2. Create an API key and restrict it to those three APIs (and to your server's IPs in production).
+3. Put it in `src/backend/.env` as `GOOGLE_MAPS_API_KEY=...`.
+
+The key is only used on the server. The browser never sees it; address search goes through `/api/geocode`.
+
+## Docker (PostgreSQL + API + web)
+
+```bash
+cd src
+GOOGLE_MAPS_API_KEY=your-key docker compose up --build
+# open http://localhost:8080
+```
+
+Nginx serves the built frontend and forwards `/api` to the FastAPI container. The API runs as a non-root user.
+
+## API
+
+All errors use one shape: `{"detail": {"code": "ADDRESS_NOT_FOUND", "message": "..."}}`.
+
+| Method & path | Body / query | Success | Errors |
+|---|---|---|---|
+| `POST /api/groups` | `name, travel_mode, meet_at?, venue_types[]` | 201 group | 422 |
+| `GET /api/groups/{id}` | | 200 group with members | 404 `GROUP_NOT_FOUND` |
+| `PATCH /api/groups/{id}` | any of `name, travel_mode, meet_at, venue_types` | 200 group | 404, 422 |
+| `POST /api/groups/{id}/members` | `name`, `lat+lng` or `address`, `travel_mode?` | 201 member | 404, 422 `TOO_MANY_MEMBERS` / `ADDRESS_NOT_FOUND`, 502 `GEOCODER_FAILED`, 503 `GEOCODER_UNAVAILABLE` |
+| `DELETE /api/groups/{id}/members/{mid}` | | 204 | 404 `MEMBER_NOT_FOUND` |
+| `POST /api/groups/{id}/meeting-point` | | 200 recommendation | 422 `NOT_ENOUGH_MEMBERS` / `TOO_MANY_MEMBERS` / `NO_REACHABLE_AREA`, 429 `RATE_LIMITED` |
+| `GET /api/groups/{id}/recommendations?limit=` | | 200 latest results | 404 |
+| `GET /api/geocode?q=` | free text, any country | 200 up to 5 matches | 502, 503 |
+| `GET /health` | | `{ok, maps_configured}` | |
+
+Travel modes: `DRIVE`, `TWO_WHEELER`, `TRANSIT`, `WALK`, `BICYCLE`. `meet_at` is ISO-8601 **with a UTC offset**, so viewers in any time zone read it correctly.
+
+## Configuration
+
+All settings are environment variables. See [src/backend/.env.example](src/backend/.env.example) for the full list with defaults: group limits, ring radius, fairness weights, venue radius steps, fallback speeds, retention days and rate limit. There is no default city, coordinate or country anywhere in the code.
+
+## Tests
+
+```bash
+cd src/backend && pytest -q       # 59 tests: geometry, engine, Google client, HTTP API
+cd src/frontend && npm test       # formatting / units / time-zone helpers
+```
+
+The engine tests run the full pipeline in 7 cities on 5 continents against a fake map client. That client checks Google's route-matrix element limits on every call, so a change that would break them fails the tests. Every fallback and every edge case from the PRD has a test.
+
+## Privacy
+
+- Anyone with the invite link (an unguessable 48-bit id) can view and edit the group. There are no accounts in v1.
+- Groups, with their members and saved results, are deleted after `GROUP_RETENTION_DAYS` (30 by default). This runs at API start-up, and `python -m app.purge` can be scheduled to run nightly.
+- Coordinates and addresses are never written to logs.
+
+## Status
+
+Built: everything in the PRD's P0 and P1 scope, which is:
+
+- meetup and invite link
+- address, GPS or pin input
+- travel mode per person
+- the fair meeting-point engine
+- venue suggestions
+- travel strips and the map
+- all fallbacks
+- meeting time
+- saved results
+
+Also built from the production list: Docker, an in-process rate limit, the retention purge and CI.
+
+Planned (see [docs/implementation.md](docs/implementation.md), phases 8–10):
+
+- Alembic migrations
+- a Redis cache for Places results
+- a shared rate limiter for multiple instances
+- a commercial map tile provider for heavy traffic
+- request ids and metric dashboards
+- the 20-city fairness benchmark
+- v2: accessibility routing, opening hours at the meeting time, venue voting
