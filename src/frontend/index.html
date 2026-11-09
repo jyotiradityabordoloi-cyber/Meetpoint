@@ -3,13 +3,89 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Find a meeting place that is fair for everyone in a group to reach, in any city." />
+    <title>MeetPoint – Find a fair place to meet, in any city</title>
+    <meta
+      name="description"
+      content="Pick a meeting place that's fair for everyone in your group. MeetPoint compares real travel times by car, public transport, two-wheeler, bike or on foot and suggests cafés, restaurants and parks where nobody is stuck with a long trip."
+    />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta name="theme-color" content="#0f766e" />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%230f766e'/><circle cx='16' cy='16' r='5' fill='white'/></svg>" />
-    <title>MeetPoint</title>
+    <meta name="color-scheme" content="light" />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Link previews (WhatsApp, Slack, iMessage, X, LinkedIn) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="MeetPoint" />
+    <meta property="og:title" content="MeetPoint – Find a fair place to meet" />
+    <meta
+      property="og:description"
+      content="Add where everyone is starting from. MeetPoint suggests venues where nobody is stuck with a long trip."
+    />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="MeetPoint: travel-time bars for each person and a map of fair meeting spots" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="MeetPoint – Find a fair place to meet" />
+    <meta
+      name="twitter:description"
+      content="Add where everyone is starting from. MeetPoint suggests venues where nobody is stuck with a long trip."
+    />
+    <meta name="twitter:image" content="/og-image.png" />
+    <!-- Canonical link and absolute og:url / og:image are added at build time when VITE_SITE_URL is set. -->
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "MeetPoint",
+        "description": "Find a meeting place that is fair for everyone in a group to reach, in any city.",
+        "applicationCategory": "TravelApplication",
+        "operatingSystem": "Any (web browser)",
+        "browserRequirements": "Requires JavaScript",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "featureList": [
+          "Fair meeting point from everyone's real travel time",
+          "Car, two-wheeler, public transport, walking and cycling",
+          "Café, restaurant, bar, park and mall suggestions",
+          "Invite link so friends add their own starting point",
+          "Works in any city"
+        ]
+      }
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Shown before JavaScript loads (and to crawlers that don't run it). React replaces it. -->
+      <main class="prerender">
+        <header class="prerender-head">
+          <span class="logo" aria-hidden="true"></span>
+          <h1>MeetPoint</h1>
+        </header>
+        <p class="prerender-lead">
+          Find a meeting place that's fair for everyone in your group to reach, in any city.
+        </p>
+        <h2>How it works</h2>
+        <ol>
+          <li>Name your meetup and choose how people will travel: car, two-wheeler, public transport, walking or cycling.</li>
+          <li>Add where everyone is starting from, or share the invite link so friends add themselves.</li>
+          <li>Get five venues ranked by fairness, with each person's travel time side by side.</li>
+        </ol>
+        <h2>Why it's fair</h2>
+        <p>
+          MeetPoint doesn't just pick the midpoint on a map. It compares real travel times for every person and
+          prefers places where the longest trip is short and trips are even, so the friend who lives farthest away
+          isn't always the one travelling an hour.
+        </p>
+        <noscript>
+          <p class="prerender-note">MeetPoint is an interactive map app. Please turn on JavaScript to use it.</p>
+        </noscript>
+      </main>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

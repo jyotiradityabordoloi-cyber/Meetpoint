@@ -30,7 +30,10 @@ services:
       - "8000:8000"
 
   web:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_SITE_URL: ${SITE_URL:-}
     depends_on:
       - api
     ports:

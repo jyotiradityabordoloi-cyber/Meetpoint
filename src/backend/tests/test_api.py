@@ -184,3 +184,9 @@ def test_purge_old_groups(make_client):
     assert c.get(f"/api/groups/{new['id']}").status_code == 200
     with session_factory()() as db:
         assert db.query(Member).filter(Member.group_id == old["id"]).count() == 0
+
+
+def test_api_responses_are_noindex(make_client):
+    c = make_client()
+    assert c.get("/health").headers["x-robots-tag"] == "noindex, nofollow"
+    assert c.get("/api/groups/nope").headers["x-robots-tag"] == "noindex, nofollow"

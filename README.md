@@ -161,11 +161,36 @@ All settings are environment variables. See [src/backend/.env.example](src/backe
 ## Tests
 
 ```bash
-cd src/backend && pytest -q       # 59 tests: geometry, engine, Google client, HTTP API
+cd src/backend && pytest -q       # 60 tests: geometry, engine, Google client, HTTP API
 cd src/frontend && npm test       # formatting / units / time-zone helpers
 ```
 
 The engine tests run the full pipeline in 7 cities on 5 continents against a fake map client. That client checks Google's route-matrix element limits on every call, so a change that would break them fails the tests. Every fallback and every edge case from the PRD has a test.
+
+## Search and link previews
+
+MeetPoint is a tool, not a content site. The home page is meant to be found and shared. Meetup links contain people's starting points, so they must never show up in search results.
+
+| What | How |
+|---|---|
+| Real content without JavaScript | `index.html` has a heading, "How it works" and a `<noscript>` note. React replaces them once it loads. |
+| Titles and description | A descriptive home-page title and meta description. A meetup tab shows `Friday dinner · MeetPoint`. |
+| Link previews (WhatsApp, Slack, X, LinkedIn) | Open Graph and Twitter tags, plus a 1200×630 share image at `public/og-image.png` |
+| Structured data | JSON-LD `WebApplication` |
+| One heading, accessible names | A single `<h1>`. Actions that go somewhere are links (`Open in Google Maps`); actions that do something are buttons. |
+| Meetup links kept private | `noindex, nofollow` as a meta tag (set by the app) and as an `X-Robots-Tag` header (set by nginx when `?g=` is present). The API sends `noindex` too. |
+| No leaking via the Referer header | `Referrer-Policy: strict-origin-when-cross-origin`, so map tile and Google Maps requests never see a `?g=` id |
+| Real 404s | nginx serves the app at `/` only. Unknown paths return a 404 status and `404.html`, not the app (which would be a "soft 404"). |
+| robots.txt, sitemap, canonical | Generated at build time. Build with `VITE_SITE_URL=https://your-domain` to get `<link rel="canonical">`, an absolute share-image URL and `sitemap.xml`. AI crawlers are not blocked. |
+| Icons | SVG favicon, Apple touch icon, a web manifest, and 192/512 px icons (the 512 is also maskable) |
+
+At launch (outside the code):
+
+1. Serve a single origin. Redirect `www` to the bare domain (or the other way) and HTTP to HTTPS at the load balancer.
+2. Build with `SITE_URL=https://your-domain docker compose up --build`.
+3. Add the domain to Google Search Console and Bing Webmaster Tools, and submit `/sitemap.xml`.
+4. Check the share preview with a link-preview debugger, such as LinkedIn Post Inspector or by pasting the link into a chat.
+5. Get a few links pointing to the site: this repo's "Website" field, a Product Hunt or Show HN post, and any city or community pages that would find it useful.
 
 ## Privacy
 
