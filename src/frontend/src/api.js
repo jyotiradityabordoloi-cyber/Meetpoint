@@ -11,15 +11,17 @@ export class ApiError extends Error {
   }
 }
 
-async function request(method, path, body) {
+async function request(method, path, body, signal) {
   let res
   try {
     res = await fetch(`${BASE}${path}`, {
       method,
       headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal,
     })
-  } catch {
+  } catch (e) {
+    if (e?.name === 'AbortError') throw e
     throw new ApiError(0, 'NETWORK', "Can't reach the MeetPoint server. Check your connection and try again.")
   }
   if (res.status === 204) return null
@@ -49,6 +51,19 @@ export const api = {
   recommendations: (id, limit = 1) =>
     request('GET', `/api/groups/${encodeURIComponent(id)}/recommendations?limit=${limit}`),
   geocode: (q) => request('GET', `/api/geocode?q=${encodeURIComponent(q)}`),
+  autocomplete: (q, { bias, session, lang } = {}, signal) => {
+    const p = new URLSearchParams({ q })
+    if (bias) {
+      p.set('lat', bias.lat.toFixed(4))
+      p.set('lng', bias.lng.toFixed(4))
+    }
+    if (session) p.set('session', session)
+    if (lang) p.set('lang', lang)
+    return request('GET', `/api/autocomplete?${p}`, undefined, signal)
+  },
+  place: (id, session) =>
+    request('GET', `/api/places/${encodeURIComponent(id)}${session ? `?session=${encodeURIComponent(session)}` : ''}`),
+  locate: () => request('GET', '/api/locate'),
 }
 
 // Minimal client-side event hook for the PRD metrics. Pushes to

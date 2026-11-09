@@ -55,6 +55,18 @@ class Settings(BaseSettings):
     matrix_max_elements_transit: int = 100
     google_timeout_s: float = 8.0
 
+    # Place search as you type. Google Places Autocomplete is used when a Maps
+    # key is set; otherwise Photon (OpenStreetMap) if PHOTON_URL is set,
+    # e.g. https://photon.komoot.io (fair use) or a self-hosted instance.
+    photon_url: str = ""
+
+    # Approximate visitor location (search bias, first map view). Edge headers
+    # (Cloudflare / Vercel / GCP) are read when present; GEOIP_DB_PATH points to
+    # a MaxMind GeoLite2-City .mmdb file. DEV_LOCATE_PUBLIC_IP is for local dev.
+    geoip_db_path: str = ""
+    trust_geo_headers: bool = True
+    dev_locate_public_ip: bool = False
+
     # Privacy / abuse
     group_retention_days: int = 30
     purge_on_startup: bool = True

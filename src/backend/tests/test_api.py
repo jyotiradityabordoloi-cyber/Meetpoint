@@ -36,7 +36,7 @@ def _group(c, **kw):
 
 def test_health(make_client):
     c = make_client()
-    assert c.get("/health").json() == {"ok": True, "maps_configured": False}
+    assert c.get("/health").json() == {"ok": True, "maps_configured": False, "search": None}
 
 
 def test_group_crud_and_member_lifecycle(make_client):

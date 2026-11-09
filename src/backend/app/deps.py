@@ -10,6 +10,7 @@ from fastapi import Request
 from .config import Settings
 from .errors import ApiError
 from .services.google import GoogleMapClient, MapClient
+from .services.search import GooglePlacesSearch, PhotonSearch, SearchProvider
 
 
 def get_settings_dep(request: Request) -> Settings:
@@ -28,6 +29,19 @@ async def get_maps(request: Request) -> AsyncIterator[MapClient | None]:
             http,
             {"TRANSIT": settings.matrix_max_elements_transit, "*": settings.matrix_max_elements},
         )
+
+
+async def get_search(request: Request) -> AsyncIterator[SearchProvider | None]:
+    """Google Places Autocomplete with a key; Photon (OSM) if configured; else None."""
+    settings: Settings = request.app.state.settings
+    if settings.maps_configured:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(5.0, connect=3.0)) as http:
+            yield GooglePlacesSearch(settings.google_maps_api_key, http)
+    elif settings.photon_url:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(5.0, connect=3.0)) as http:
+            yield PhotonSearch(settings.photon_url, http)
+    else:
+        yield None
 
 
 class RateLimiter:

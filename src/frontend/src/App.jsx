@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, ApiError, track } from './api.js'
-import { colourFor } from './format.js'
+import { centreOf, colourFor } from './format.js'
 import GroupSettings from './components/GroupSettings.jsx'
 import People from './components/People.jsx'
 import AddPerson from './components/AddPerson.jsx'
@@ -49,7 +49,10 @@ export default function App() {
   const [members, setMembers] = useState([])
   const [result, setResult] = useState(null)
   const [selected, setSelected] = useState(0)
-  const [pin, setPin] = useState(null)
+  const [draft, setDraft] = useState(null) // starting point being added: {lat, lng, label, source}
+  const [pickMode, setPickMode] = useState(false)
+  const [approx, setApprox] = useState(null) // viewer's approximate location from their IP
+  const [settingsOpen, setSettingsOpen] = useState(null) // null = automatic
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState(null)
   const [notice, setNotice] = useState(null)
@@ -59,6 +62,7 @@ export default function App() {
   const settingsRef = useRef(settings)
   const patchTimer = useRef(null)
   const pendingPatch = useRef({})
+  const resultsRef = useRef(null)
   settingsRef.current = settings
 
   const invalidate = useCallback(() => {
@@ -70,6 +74,12 @@ export default function App() {
   useEffect(() => {
     track('app_open')
     api.health().then(setHealth).catch(() => setHealth({ ok: false, maps_configured: false }))
+    // City-level location from the IP address: ranks search suggestions and
+    // centres the first map view. Never stored.
+    api
+      .locate()
+      .then((r) => r?.located && setApprox(r))
+      .catch(() => {})
     const g = readGroupParam()
     if (!g) {
       setBooting(false)
@@ -190,7 +200,8 @@ export default function App() {
       const id = await ensureGroup()
       const created = await api.addMember(id, m)
       setMembers((prev) => [...prev, created])
-      setPin(null)
+      setDraft(null)
+      setPickMode(false)
       invalidate()
       track('member_added', { method })
       return created
@@ -228,6 +239,7 @@ export default function App() {
       const rec = await api.meetingPoint(groupId)
       setResult(rec)
       setSelected(0)
+      requestAnimationFrame(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
       track('search_succeeded', {
         venues: rec.venues.length,
         estimated: rec.estimated,
@@ -264,7 +276,9 @@ export default function App() {
     setGroupId(null)
     setSettings(DEFAULT_SETTINGS)
     setMembers([])
-    setPin(null)
+    setDraft(null)
+    setPickMode(false)
+    setSettingsOpen(null)
     setNotice(null)
     setError(null)
     invalidate()
@@ -295,6 +309,25 @@ export default function App() {
   }, [groupId, settings.name])
 
   const mapsConfigured = health?.maps_configured ?? true
+  const searchAvailable = health ? Boolean(health.search) : true
+  const memberCentre = useMemo(() => centreOf(members), [members])
+  const bias = memberCentre || (approx ? { lat: approx.lat, lng: approx.lng } : null)
+  const biasLabel = members.length ? 'your group' : approx ? approx.city || 'your area' : null
+  const settingsCollapsed = settingsOpen === null ? members.length > 0 : !settingsOpen
+
+  // On phones the map is above the form: bring it into view when picking.
+  useEffect(() => {
+    if (pickMode && window.matchMedia('(max-width: 820px)').matches) window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [pickMode])
+
+  const onMapClick = useCallback(
+    (p) => {
+      if (!pickMode) return
+      setDraft({ lat: p.lat, lng: p.lng, label: `Pin at ${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}`, source: 'pin' })
+      setPickMode(false)
+    },
+    [pickMode],
+  )
   const canSearch = members.length >= 2 && !searching
 
   return (
@@ -310,11 +343,19 @@ export default function App() {
         <div className="topbar-actions">
           {groupId && (
             <button className="btn ghost" onClick={startOver} title="Start a new meetup">
-              New meetup
+              <span className="lbl-long">New meetup</span>
+              <span className="lbl-short" aria-hidden="true">New</span>
             </button>
           )}
-          <button className="btn secondary" onClick={copyInvite}>
-            {copied ? 'Link copied ✓' : 'Copy invite link'}
+          <button className="btn secondary" onClick={copyInvite} aria-label="Copy invite link">
+            {copied ? (
+              'Copied ✓'
+            ) : (
+              <>
+                <span className="lbl-long">Copy invite link</span>
+                <span className="lbl-short">Invite</span>
+              </>
+            )}
           </button>
         </div>
       </header>
@@ -327,16 +368,18 @@ export default function App() {
             result={result}
             selected={selected}
             onSelect={setSelected}
-            pin={pin}
-            onMapClick={(p) => setPin(p)}
+            draft={draft}
+            approx={approx}
+            pickMode={pickMode}
+            onMapClick={onMapClick}
           />
         </section>
 
         <aside className="panel">
           {!mapsConfigured && (
             <div className="banner warn" role="status">
-              This server has no Google Maps key: address search is off, travel times are estimates and no venues are
-              suggested. Add people with your location or a map pin.
+              Running without a Google Maps key: travel times are estimates and the fairest areas are shown instead of
+              venues.
             </div>
           )}
           {notice && (
@@ -354,7 +397,12 @@ export default function App() {
             </div>
           ) : (
             <>
-              <GroupSettings settings={settings} onChange={updateSettings} />
+              <GroupSettings
+                settings={settings}
+                onChange={updateSettings}
+                collapsed={settingsCollapsed}
+                onToggle={members.length ? () => setSettingsOpen(settingsCollapsed) : undefined}
+              />
 
               <div className="card">
                 <div className="card-head">
@@ -364,29 +412,44 @@ export default function App() {
                 <People members={members} colours={colours} groupMode={settings.travel_mode} onRemove={removeMember} />
                 {members.length < 25 && (
                   <AddPerson
-                    mapsConfigured={mapsConfigured}
                     groupMode={settings.travel_mode}
-                    pin={pin}
-                    onClearPin={() => setPin(null)}
+                    searchAvailable={searchAvailable}
+                    bias={bias}
+                    biasLabel={biasLabel}
+                    draft={draft}
+                    onDraft={(d) => {
+                      setDraft(d)
+                      setPickMode(false)
+                    }}
+                    pickMode={pickMode}
+                    onPickMode={setPickMode}
                     onAdd={addMember}
                     isFirst={members.length === 0}
                   />
                 )}
               </div>
 
-              <button className="btn primary find" disabled={!canSearch} onClick={findMeetingPoint}>
-                {searching ? 'Finding fair spots…' : members.length < 2 ? 'Add at least 2 people' : 'Find meeting point'}
-              </button>
-
-              {error && (
-                <div className="banner error" role="alert">
-                  {error.message}
-                </div>
-              )}
+              <div className={canSearch || result ? 'panel-actions sticky' : 'panel-actions'}>
+                {error && (
+                  <div className="banner error" role="alert">
+                    {error.message}
+                  </div>
+                )}
+                <button className="btn primary find" disabled={!canSearch} onClick={findMeetingPoint}>
+                  {searching
+                    ? 'Finding fair spots…'
+                    : members.length < 2
+                      ? `Add at least 2 people (${members.length}/2)`
+                      : result
+                        ? 'Search again'
+                        : `Find meeting point for ${members.length}`}
+                </button>
+              </div>
 
               {searching && <div className="card skeleton" aria-busy="true">Checking travel times for everyone…</div>}
 
               {result && !searching && (
+                <div ref={resultsRef} className="results-anchor">
                 <Results
                   result={result}
                   colours={colours}
@@ -394,6 +457,7 @@ export default function App() {
                   onSelect={setSelected}
                   meetingName={settings.name}
                 />
+                </div>
               )}
             </>
           )}

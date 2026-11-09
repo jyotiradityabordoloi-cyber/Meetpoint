@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  centreOf,
   colourFor,
   formatDistance,
   formatMinutes,
@@ -34,5 +35,10 @@ describe('format', () => {
     expect(regionHeading({ area: null, locality: null })).toBe(null)
     expect(colourFor(0)).not.toBe(colourFor(1))
     expect(colourFor(12)).toBe(colourFor(0))
+  })
+
+  it('finds the centre used to rank search suggestions', () => {
+    expect(centreOf([])).toBe(null)
+    expect(centreOf([{ lat: 10, lng: 20 }, { lat: 12, lng: 22 }])).toEqual({ lat: 11, lng: 21 })
   })
 })

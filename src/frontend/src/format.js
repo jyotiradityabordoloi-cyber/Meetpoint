@@ -12,11 +12,11 @@ export function colourFor(index) {
 }
 
 export const MODES = [
-  { id: 'DRIVE', label: 'Car', icon: '🚗' },
-  { id: 'TWO_WHEELER', label: 'Two-wheeler', icon: '🛵' },
-  { id: 'TRANSIT', label: 'Public transport', icon: '🚆' },
-  { id: 'WALK', label: 'Walk', icon: '🚶' },
-  { id: 'BICYCLE', label: 'Cycle', icon: '🚲' },
+  { id: 'DRIVE', label: 'Car', short: 'Car', icon: '🚗' },
+  { id: 'TWO_WHEELER', label: 'Two-wheeler', short: '2-wheeler', icon: '🛵' },
+  { id: 'TRANSIT', label: 'Public transport', short: 'Transit', icon: '🚆' },
+  { id: 'WALK', label: 'Walk', short: 'Walk', icon: '🚶' },
+  { id: 'BICYCLE', label: 'Cycle', short: 'Cycle', icon: '🚲' },
 ]
 
 export function modeLabel(id) {
@@ -113,4 +113,12 @@ export function formatMeetTime(iso, locale) {
 
 export function googleMapsSearchUrl(lat, lng) {
   return `https://www.google.com/maps/search/?api=1&query=${lat.toFixed(6)},${lng.toFixed(6)}`
+}
+
+// Simple mean of points; fine for biasing search within a city-sized group.
+export function centreOf(points) {
+  if (!points.length) return null
+  const lat = points.reduce((a, p) => a + p.lat, 0) / points.length
+  const lng = points.reduce((a, p) => a + p.lng, 0) / points.length
+  return { lat, lng }
 }

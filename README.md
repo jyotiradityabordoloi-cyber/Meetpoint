@@ -111,7 +111,7 @@ npm install
 npm run dev                 # http://localhost:5173 (proxies /api to :8000)
 ```
 
-**No Google key yet?** The app still runs: travel times are estimates and the fairest zones are shown instead of venues. To try the full venue UI offline, run the API with the synthetic map client the tests use (development only):
+**No Google key yet?** The app still runs: travel times are estimates and the fairest zones are shown instead of venues. To try the whole app locally, run the demo API (development only). It uses real place search and real area names from OpenStreetMap (Photon), finds your city from your IP address, and makes up venues and travel times:
 
 ```bash
 cd src/backend
@@ -120,7 +120,7 @@ python scripts/dev_fake_maps.py
 
 ### Google Maps Platform key
 
-1. In Google Cloud, enable **Routes API**, **Places API (New)** and **Geocoding API** for a project with billing.
+1. In Google Cloud, enable **Routes API**, **Places API (New)** (used for venues and for search-as-you-type) and **Geocoding API** for a project with billing.
 2. Create an API key and restrict it to those three APIs (and to your server's IPs in production).
 3. Put it in `src/backend/.env` as `GOOGLE_MAPS_API_KEY=...`.
 
@@ -150,9 +150,22 @@ All errors use one shape: `{"detail": {"code": "ADDRESS_NOT_FOUND", "message": "
 | `POST /api/groups/{id}/meeting-point` | | 200 recommendation | 422 `NOT_ENOUGH_MEMBERS` / `TOO_MANY_MEMBERS` / `NO_REACHABLE_AREA`, 429 `RATE_LIMITED` |
 | `GET /api/groups/{id}/recommendations?limit=` | | 200 latest results | 404 |
 | `GET /api/geocode?q=` | free text, any country | 200 up to 5 matches | 502, 503 |
-| `GET /health` | | `{ok, maps_configured}` | |
+| `GET /api/autocomplete?q=&lat=&lng=&session=` | 2+ characters; optional point to rank results near | 200 `{provider, suggestions[]}` | 502 `SEARCH_FAILED`, 503 `SEARCH_UNAVAILABLE` |
+| `GET /api/places/{id}?session=` | a Google suggestion id | 200 `{label, lat, lng}` | 404 `PLACE_NOT_FOUND` |
+| `GET /api/locate` | | 200 `{located, lat, lng, city, country_code, source}` (city-level, rounded) | |
+| `GET /health` | | `{ok, maps_configured, search}` | |
 
 Travel modes: `DRIVE`, `TWO_WHEELER`, `TRANSIT`, `WALK`, `BICYCLE`. `meet_at` is ISO-8601 **with a UTC offset**, so viewers in any time zone read it correctly.
+
+## Place search and approximate location
+
+Typing in the starting-point box shows place suggestions after two letters. Results are ranked near the people already in the group or, for the first person, near the viewer's approximate location.
+
+- **Search provider:** Google Places Autocomplete (New) when `GOOGLE_MAPS_API_KEY` is set. Keystrokes and the final pick share a session token, so they're billed as one session. Without a key, set `PHOTON_URL` to use [Photon](https://photon.komoot.io), free OpenStreetMap search. The public instance is fair-use only, so self-host it for real traffic.
+- **Approximate location** (`GET /api/locate`): city-level only, rounded to about 1 km, and never stored or logged. It also opens the map on the viewer's area instead of the whole world. Sources, in order:
+  1. Location headers from the hosting edge: Cloudflare (turn on *visitor location headers*), Vercel or Google Cloud.
+  2. A local MaxMind GeoLite2-City database (`GEOIP_DB_PATH`), so no third party sees the IP address.
+  3. For local development only, `DEV_LOCATE_PUBLIC_IP=true`, which looks up the computer's own public IP address.
 
 ## Configuration
 
@@ -161,7 +174,7 @@ All settings are environment variables. See [src/backend/.env.example](src/backe
 ## Tests
 
 ```bash
-cd src/backend && pytest -q       # 60 tests: geometry, engine, Google client, HTTP API
+cd src/backend && pytest -q       # 69 tests: geometry, engine, Google client, search, IP location, HTTP API
 cd src/frontend && npm test       # formatting / units / time-zone helpers
 ```
 

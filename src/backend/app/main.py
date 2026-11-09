@@ -10,7 +10,8 @@ from .db import init_db
 from .deps import RateLimiter
 from .errors import install_error_handlers
 from .purge import purge_old_groups
-from .routers import groups, meeting
+from .routers import groups, meeting, places
+from .services.locate import DevPublicIpLocator, GeoIpDb
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("meetpoint")
@@ -22,6 +23,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.limiter = RateLimiter(settings.rate_limit_per_minute)
     app.state.geocode_limiter = RateLimiter(settings.rate_limit_per_minute * 6)
+    # Typing sends a request every few keystrokes (debounced in the client).
+    app.state.autocomplete_limiter = RateLimiter(settings.rate_limit_per_minute * 18)
+    app.state.geoip = GeoIpDb(settings.geoip_db_path)
+    app.state.dev_locator = DevPublicIpLocator()
 
     init_db(settings.database_url)
     if settings.purge_on_startup:
@@ -49,11 +54,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     install_error_handlers(app)
     app.include_router(groups.router)
     app.include_router(meeting.router)
+    app.include_router(places.router)
 
     @app.get("/health")
     @app.get("/api/health")
     def health():
-        return {"ok": True, "maps_configured": settings.maps_configured}
+        return {
+            "ok": True,
+            "maps_configured": settings.maps_configured,
+            "search": "google" if settings.maps_configured else ("photon" if settings.photon_url else None),
+        }
 
     if not settings.maps_configured:
         log.warning("GOOGLE_MAPS_API_KEY is not set: travel times will be estimates and no venues are returned")
