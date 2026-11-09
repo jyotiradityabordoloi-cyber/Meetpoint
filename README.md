@@ -1,6 +1,20 @@
 # MeetPoint
 
+[![CI](https://github.com/jyotiradityabordoloi-cyber/Meetpoint/actions/workflows/ci.yml/badge.svg)](https://github.com/jyotiradityabordoloi-cyber/Meetpoint/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-0f766e.svg)](LICENSE)
+![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
+![Leaflet](https://img.shields.io/badge/Leaflet-1.9-199900?logo=leaflet&logoColor=white)
+
 **Find a meeting place that is fair for everyone in a group to reach, in any city.**
+
+<p align="center">
+  <img src="docs/images/screenshot-desktop.jpg" alt="MeetPoint on desktop: ranked venues with a travel-time bar for each person, and a map showing everyone, the fairest zones and the numbered venues" width="78%">
+  &nbsp;
+  <img src="docs/images/screenshot-mobile.jpg" alt="MeetPoint on a phone: map on top, ranked venues with travel bars below" width="19%">
+</p>
+<p align="center"><sub>Screenshots use the offline demo map client (<code>scripts/dev_fake_maps.py</code>), so venue names, ratings and the "Demo City" label are made up. With a Google Maps key you get real venues and live travel times.</sub></p>
 
 MeetPoint is a responsive web app. An organiser creates a meetup, people add where they're starting from (address, GPS or a pin on the map, or through an invite link), and **Find meeting point** returns five ranked venues. Each venue shows one bar per person on a shared time scale, so you can see straight away whether an option makes one person travel much longer than the rest.
 
@@ -184,3 +198,7 @@ Planned (see [docs/implementation.md](docs/implementation.md), phases 8–10):
 - request ids and metric dashboards
 - the 20-city fairness benchmark
 - v2: accessibility routing, opening hours at the meeting time, venue voting
+
+## License
+
+[MIT](LICENSE). Map data © OpenStreetMap contributors. Venue and routing data come from Google Maps Platform under Google's terms.

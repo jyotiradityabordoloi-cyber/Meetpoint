@@ -33,7 +33,11 @@ def build():
     app = create_app(settings)
 
     async def fake_maps():
-        yield FakeMapClient(country=os.environ.get("FAKE_COUNTRY", "PT"))
+        yield FakeMapClient(
+            country=os.environ.get("FAKE_COUNTRY", "PT"),
+            area=os.environ.get("FAKE_AREA", "Old Town"),
+            locality=os.environ.get("FAKE_CITY", "Demo City"),
+        )
 
     app.dependency_overrides[get_maps] = fake_maps
     return app

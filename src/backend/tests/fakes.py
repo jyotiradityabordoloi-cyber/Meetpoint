@@ -11,6 +11,30 @@ from app.services.google import GeocodeResult, GoogleError, MatrixElement, Place
 
 SPEEDS = {"DRIVE": 32.0, "TWO_WHEELER": 30.0, "TRANSIT": 24.0, "BICYCLE": 15.0, "WALK": 5.0}
 LIMITS = {"TRANSIT": 100}
+
+# Generic, made-up venue names for the offline demo / tests.
+DEMO_NAMES = [
+    "Corner Café",
+    "Harbour Kitchen",
+    "The Green Room",
+    "Little Lantern",
+    "Market Hall",
+    "Riverside Bistro",
+    "Copper Kettle",
+    "Olive & Thyme",
+    "Sunday Social",
+    "The Reading Room",
+    "Blue Door Coffee",
+    "Garden Terrace",
+    "Night Owl Bar",
+    "Plaza Diner",
+    "Maple Bakery",
+    "Old Mill Pub",
+    "Courtyard Grill",
+    "Paper Moon Café",
+    "Station Eatery",
+    "Hilltop Park",
+]
 DEFAULT_LIMIT = 625
 
 
@@ -28,6 +52,8 @@ class FakeMapClient:
     blocked_km: float = 0.0
     blocked_everywhere: bool = False
     country: str = "PT"
+    area: str = "Centro"
+    locality: str = "Test City"
     # Recorded calls
     matrix_calls: list[dict] = field(default_factory=list)
     places_calls: list[dict] = field(default_factory=list)
@@ -80,7 +106,7 @@ class FakeMapClient:
             places.append(
                 Place(
                     id=pid,
-                    name=f"Venue {pid[-4:]}",
+                    name=DEMO_NAMES[int(pid[1:], 16) % len(DEMO_NAMES)],
                     lat=p.lat,
                     lng=p.lng,
                     rating=3.8 + (i % 5) * 0.25,
@@ -114,8 +140,8 @@ class FakeMapClient:
                 lat=point.lat,
                 lng=point.lng,
                 components=[
-                    {"long_name": "Centro", "short_name": "Centro", "types": ["neighborhood", "political"]},
-                    {"long_name": "Test City", "short_name": "Test City", "types": ["locality", "political"]},
+                    {"long_name": self.area, "short_name": self.area, "types": ["neighborhood", "political"]},
+                    {"long_name": self.locality, "short_name": self.locality, "types": ["locality", "political"]},
                     {"long_name": "Country", "short_name": self.country, "types": ["country", "political"]},
                 ],
             )
