@@ -38,6 +38,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["Content-Type"],
     )
+
+    @app.middleware("http")
+    async def no_index_api(request, call_next):
+        # API responses are data, not pages: keep them out of search results.
+        response = await call_next(request)
+        response.headers.setdefault("X-Robots-Tag", "noindex, nofollow")
+        return response
+
     install_error_handlers(app)
     app.include_router(groups.router)
     app.include_router(meeting.router)

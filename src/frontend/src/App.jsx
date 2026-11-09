@@ -14,6 +14,8 @@ const DEFAULT_SETTINGS = {
   venue_types: ['cafe', 'coffee_shop', 'restaurant'],
 }
 
+const DEFAULT_TITLE = document.title || 'MeetPoint – Find a fair place to meet, in any city'
+
 function readGroupParam() {
   const g = new URLSearchParams(window.location.search).get('g')
   return g && /^[0-9a-f]{6,24}$/i.test(g) ? g : null
@@ -273,6 +275,24 @@ export default function App() {
     members.forEach((m, i) => (map[m.id] = colourFor(i)))
     return map
   }, [members])
+
+  // Page title per meetup, and keep private meetup links (?g=...) out of
+  // search results: they contain people's starting points.
+  useEffect(() => {
+    const name = settings.name?.trim()
+    document.title = groupId && name ? `${name} · MeetPoint` : DEFAULT_TITLE
+    let robots = document.querySelector('meta[name="robots"]')
+    if (groupId) {
+      if (!robots) {
+        robots = document.createElement('meta')
+        robots.name = 'robots'
+        document.head.appendChild(robots)
+      }
+      robots.content = 'noindex, nofollow'
+    } else if (robots) {
+      robots.remove()
+    }
+  }, [groupId, settings.name])
 
   const mapsConfigured = health?.maps_configured ?? true
   const canSearch = members.length >= 2 && !searching

@@ -676,3 +676,39 @@ a:focus-visible,
     grid-template-columns: minmax(56px, 72px) 1fr auto;
   }
 }
+
+/* ---- pre-JS content in index.html (replaced by React) ------------------ */
+.prerender {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 32px 20px 48px;
+}
+.prerender-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.prerender h1 {
+  font-size: 32px;
+}
+.prerender h2 {
+  font-size: 19px;
+  margin: 24px 0 8px;
+}
+.prerender-lead {
+  font-size: 18px;
+  color: var(--muted);
+}
+.prerender ol {
+  padding-left: 22px;
+}
+.prerender li {
+  margin-bottom: 6px;
+}
+.prerender-note {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
