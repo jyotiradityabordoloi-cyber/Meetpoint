@@ -163,7 +163,10 @@ function Journeys({ journeys, to, names }) {
         <Polyline
           key={`c-${j.member_id}-${to.lat}-${to.lng}`}
           positions={j.positions}
-          pathOptions={{ color: INK, weight: 9, opacity: 0.85, lineCap: 'round', lineJoin: 'round', className: 'journey-casing' }}
+          // className must be a direct prop: Leaflet only applies it when the path
+          // is created, and react-leaflet applies pathOptions later via setStyle().
+          className="journey-casing"
+          pathOptions={{ color: INK, weight: 9, opacity: 0.85, lineCap: 'round', lineJoin: 'round' }}
           eventHandlers={{ add: (e) => primePath(e.target, i, 'casing') }}
         >
           <Tooltip sticky>
@@ -178,13 +181,8 @@ function Journeys({ journeys, to, names }) {
           key={`l-${j.member_id}-${to.lat}-${to.lng}`}
           positions={j.positions}
           interactive={false}
-          pathOptions={{
-            color: ORANGE,
-            weight: 5,
-            lineCap: 'round',
-            lineJoin: 'round',
-            className: j.curved ? 'journey-line curved' : 'journey-line',
-          }}
+          className={j.curved ? 'journey-line curved' : 'journey-line'}
+          pathOptions={{ color: ORANGE, weight: 5, lineCap: 'round', lineJoin: 'round' }}
           eventHandlers={{ add: (e) => primePath(e.target, i, 'line') }}
         />
       ))}
@@ -193,7 +191,8 @@ function Journeys({ journeys, to, names }) {
           key={`f-${j.member_id}-${to.lat}-${to.lng}`}
           positions={j.positions}
           interactive={false}
-          pathOptions={{ color: CREAM, weight: 3, lineCap: 'round', className: 'journey-flow' }}
+          className="journey-flow"
+          pathOptions={{ color: CREAM, weight: 3, lineCap: 'round' }}
           eventHandlers={{ add: (e) => primePath(e.target, i, 'flow') }}
         />
       ))}
