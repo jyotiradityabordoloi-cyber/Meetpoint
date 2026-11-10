@@ -32,7 +32,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.geoip = GeoIpDb(settings.geoip_db_path)
     app.state.dev_locator = DevPublicIpLocator()
 
-    init_db(settings.database_url)
+    init_db(settings.sqlalchemy_url)
     if settings.purge_on_startup:
         try:
             n = purge_old_groups(settings.group_retention_days)

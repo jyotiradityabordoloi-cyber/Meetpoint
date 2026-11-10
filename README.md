@@ -126,6 +126,10 @@ python scripts/dev_fake_maps.py
 
 The key is only used on the server. The browser never sees it; address search goes through `/api/geocode`.
 
+## Deploy for free
+
+Vercel hosts the website, Render hosts the API and Neon hosts the database. All three deploy from GitHub on every push. Follow the step-by-step guide in **[docs/DEPLOY.md](docs/DEPLOY.md)**; the config is already in the repo (`render.yaml`, `src/frontend/vercel.json`).
+
 ## Docker (PostgreSQL + API + web)
 
 ```bash

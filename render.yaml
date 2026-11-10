@@ -1,0 +1,34 @@
+# Render Blueprint for the MeetPoint API (free plan).
+# Render dashboard -> New -> Blueprint -> pick this repo. See docs/DEPLOY.md.
+services:
+  - type: web
+    name: meetpoint-api
+    runtime: docker
+    plan: free
+    region: singapore # closest free region to India; change to oregon / frankfurt / ohio / virginia if you like
+    dockerfilePath: ./src/backend/Dockerfile
+    dockerContext: ./src/backend
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # Neon connection string (postgres://... or postgresql://...). Paste it in the dashboard.
+      - key: DATABASE_URL
+        sync: false
+      # Optional now, needed for real venues, photos and live travel times.
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
+      # Your Vercel address, e.g. https://meetpoint.vercel.app (the site calls the API through Vercel,
+      # so this only matters if you ever call the API directly from another site).
+      - key: CORS_ORIGINS
+        sync: false
+      # Free OpenStreetMap search and routing, used only while there is no Google key.
+      # Public fair-use servers: fine for testing with friends, self-host for real traffic.
+      - key: PHOTON_URL
+        value: https://photon.komoot.io
+      - key: OSRM_URL
+        value: https://routing.openstreetmap.de
+      # One worker fits the free instance's memory.
+      - key: WEB_CONCURRENCY
+        value: "1"
+      - key: GROUP_RETENTION_DAYS
+        value: "30"

@@ -190,3 +190,16 @@ def test_api_responses_are_noindex(make_client):
     c = make_client()
     assert c.get("/health").headers["x-robots-tag"] == "noindex, nofollow"
     assert c.get("/api/groups/nope").headers["x-robots-tag"] == "noindex, nofollow"
+
+
+@pytest.mark.parametrize(
+    "given,expected",
+    [
+        ("postgres://u:p@h/db?sslmode=require", "postgresql+psycopg://u:p@h/db?sslmode=require"),
+        ("postgresql://u:p@h:5432/db", "postgresql+psycopg://u:p@h:5432/db"),
+        ("postgresql+psycopg://u:p@h/db", "postgresql+psycopg://u:p@h/db"),
+        ("sqlite:///./x.db", "sqlite:///./x.db"),
+    ],
+)
+def test_database_url_from_hosting_providers(given, expected):
+    assert Settings(database_url=given).sqlalchemy_url == expected

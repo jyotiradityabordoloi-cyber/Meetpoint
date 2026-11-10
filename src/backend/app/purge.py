@@ -32,6 +32,6 @@ def purge_old_groups(retention_days: int) -> int:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     s = get_settings()
-    init_db(s.database_url)
+    init_db(s.sqlalchemy_url)
     n = purge_old_groups(s.group_retention_days)
     log.info("purged %d groups older than %d days", n, s.group_retention_days)

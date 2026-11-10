@@ -73,7 +73,17 @@ export default function App() {
   // ---- boot: health + invite link ---------------------------------------
   useEffect(() => {
     track('app_open')
-    api.health().then(setHealth).catch(() => setHealth({ ok: false, maps_configured: false }))
+    // Free hosting puts the API to sleep when idle; say so instead of looking frozen.
+    const WAKING = 'Waking up the server. On free hosting this can take up to a minute the first time…'
+    const slow = setTimeout(() => setNotice(WAKING), 3500)
+    api
+      .health()
+      .then(setHealth)
+      .catch(() => setHealth({ ok: false, maps_configured: false }))
+      .finally(() => {
+        clearTimeout(slow)
+        setNotice((n) => (n === WAKING ? null : n))
+      })
     // City-level location from the IP address: ranks search suggestions and
     // centres the first map view. Never stored.
     api

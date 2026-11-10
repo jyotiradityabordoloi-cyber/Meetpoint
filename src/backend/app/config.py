@@ -97,6 +97,19 @@ class Settings(BaseSettings):
     def maps_configured(self) -> bool:
         return bool(self.google_maps_api_key.strip())
 
+    @property
+    def sqlalchemy_url(self) -> str:
+        """DATABASE_URL as SQLAlchemy needs it.
+
+        Hosts such as Neon, Render and Heroku hand out postgres:// or
+        postgresql:// URLs; SQLAlchemy needs the driver named (psycopg 3).
+        """
+        url = self.database_url.strip()
+        for prefix in ("postgres://", "postgresql://"):
+            if url.startswith(prefix):
+                return "postgresql+psycopg://" + url[len(prefix) :]
+        return url
+
     def matrix_limit(self, mode: str) -> int:
         return self.matrix_max_elements_transit if mode == "TRANSIT" else self.matrix_max_elements
 
