@@ -12,6 +12,7 @@ import {
   venueTypeLabel,
 } from '../format.js'
 import Icon, { ModeIcon } from './Icon.jsx'
+import { kindGlyph, tileUrl, tileXY } from '../mapShared.js'
 
 /** 0–5 stars with partial fill, plus the number and review count. */
 export function Stars({ rating, count, size = 14 }) {
@@ -37,14 +38,55 @@ export function Stars({ rating, count, size = 14 }) {
   )
 }
 
-/** Photo, or a drawn placeholder with the first letter. */
-function Thumb({ name, photos, rank, label }) {
+/** Compact "★ 4.4 (812)" shown beside a place's name. */
+export function RatingChip({ rating, count }) {
+  if (rating == null) return null
+  return (
+    <span className="rating-chip" title={`Google rating ${rating.toFixed(1)} from ${count?.toLocaleString() ?? 0} reviews`}>
+      <Icon name="star" size={13} />
+      <strong>{rating.toFixed(1)}</strong>
+      {count ? <span className="rating-count">({count.toLocaleString()})</span> : null}
+    </span>
+  )
+}
+
+const THUMB_Z = 17
+const THUMB_PX = 78
+
+/** A tiny map of the exact spot (2x2 tiles, point centred) with a pin. */
+function MapThumb({ lat, lng, type }) {
+  const { x, y } = tileXY(lat, lng, THUMB_Z)
+  const x0 = Math.floor(x - 0.5)
+  const y0 = Math.floor(y - 0.5)
+  // offset so the point lands in the middle of the thumbnail
+  const left = THUMB_PX / 2 - (x - x0) * 256
+  const top = THUMB_PX / 2 - (y - y0) * 256
+  return (
+    <span className="map-thumb" aria-hidden="true">
+      <span className="map-thumb-tiles" style={{ left, top }}>
+        {[0, 1].map((dy) =>
+          [0, 1].map((dx) => (
+            <img key={`${dx}${dy}`} src={tileUrl(THUMB_Z, x0 + dx, y0 + dy)} alt="" loading="lazy" decoding="async" draggable={false} />
+          )),
+        )}
+      </span>
+      <span className="map-thumb-pin">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{ __html: kindGlyph(type) }} />
+      </span>
+    </span>
+  )
+}
+
+/** Google photo when there is one; otherwise a mini map of the spot. */
+function Thumb({ name, photos, rank, label, lat, lng, type }) {
   const [failed, setFailed] = useState(false)
   const photo = !failed && photos?.[0]
   return (
     <span className="thumb">
       {photo ? (
         <img src={photoUrl(photo.name, 240)} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />
+      ) : lat != null && lng != null ? (
+        <MapThumb lat={lat} lng={lng} type={type} />
       ) : (
         <span className="thumb-letter" aria-hidden="true">
           {label || (name || '?').trim()[0]}
@@ -221,7 +263,7 @@ export default function Results({ result, tags, styles, selected, onSelect, meet
             return (
               <li key={it.key} className={on ? 'venue-item on' : 'venue-item'}>
                 <button type="button" className="venue-row" onClick={() => onSelect(i)} aria-expanded={on}>
-                  <Thumb name={`Area ${i + 1}`} label={String(i + 1)} rank={i + 1} />
+                  <Thumb name={`Area ${i + 1}`} label={String(i + 1)} rank={i + 1} lat={z.lat} lng={z.lng} />
                   <span className="row-info">
                     <span className="row-name">Fair area {i + 1}</span>
                     <span className="row-meta">
@@ -250,21 +292,19 @@ export default function Results({ result, tags, styles, selected, onSelect, meet
           return (
             <li key={it.key} className={on ? 'venue-item on' : 'venue-item'}>
               <button type="button" className="venue-row" onClick={() => onSelect(i)} aria-expanded={on}>
-                <Thumb name={v.name} photos={v.photos} rank={i + 1} />
+                <Thumb name={v.name} photos={v.photos} rank={i + 1} lat={v.lat} lng={v.lng} type={v.type} />
                 <span className="row-info">
-                  <span className="row-name">{v.name}</span>
-                  {v.rating != null ? (
-                    <Stars rating={v.rating} count={v.ratings} />
-                  ) : (
-                    <span className="row-type">
-                      {v.type === 'movie_theater' && <Icon name="film" size={13} />} {venueTypeLabel(v.type)}
-                    </span>
-                  )}
+                  <span className="row-title">
+                    <span className="row-name">{v.name}</span>
+                    <RatingChip rating={v.rating} count={v.ratings} />
+                  </span>
+                  <span className="row-type">
+                    {venueTypeLabel(v.type)}
+                    {price && <span> · {price}</span>}
+                  </span>
                   <span className="row-meta">
                     {v.open_now === true && <span className="open-now">Open now</span>}
                     {v.open_now === false && <span className="closed">Closed now</span>}
-                    {price && <span>{price}</span>}
-                    {v.rating != null && <span>{venueTypeLabel(v.type)}</span>}
                     <span>
                       Longest <strong>{formatMinutes(v.max_minutes)}</strong>
                     </span>
@@ -277,20 +317,20 @@ export default function Results({ result, tags, styles, selected, onSelect, meet
                 <div className="venue-detail">
                   <Gallery name={v.name} photos={v.photos} />
                   <div className="detail-head">
-                    <h3>{v.name}</h3>
+                    <div className="detail-title">
+                      <h3>{v.name}</h3>
+                      <RatingChip rating={v.rating} count={v.ratings} />
+                    </div>
                     <span className="fair-pill" title="1.00 means everyone travels equally long">
                       Fairness {v.fairness.toFixed(2)}
                     </span>
                   </div>
-                  {(v.rating != null || price || v.open_now != null) && (
-                    <p className="detail-meta">
-                      <Stars rating={v.rating} count={v.ratings} size={15} />
-                      {v.open_now === true && <span className="open-now">Open now</span>}
-                      {v.open_now === false && <span className="closed">Closed now</span>}
-                      {price && <span>{price}</span>}
-                      <span>{venueTypeLabel(v.type)}</span>
-                    </p>
-                  )}
+                  <p className="detail-meta">
+                    <span>{venueTypeLabel(v.type)}</span>
+                    {price && <span>{price}</span>}
+                    {v.open_now === true && <span className="open-now">Open now</span>}
+                    {v.open_now === false && <span className="closed">Closed now</span>}
+                  </p>
                   <ul className="info-rows">
                     {v.address && (
                       <li>
