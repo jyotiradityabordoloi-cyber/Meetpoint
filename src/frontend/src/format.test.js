@@ -4,6 +4,7 @@ import {
   distanceKm,
   formatDistance,
   formatMinutes,
+  googleMapsPlaceUrl,
   initials,
   isoToLocalInput,
   localInputToIso,
@@ -60,5 +61,14 @@ describe('format', () => {
     expect(distanceKm(delhi, blr)).toBeGreaterThan(1700)
     expect(distanceKm(delhi, blr)).toBeLessThan(1760)
     expect(distanceKm(delhi, delhi)).toBe(0)
+  })
+
+  it('links a venue to its Google Maps place page', () => {
+    const v = { name: "Bob's Bar", address: '7th A Main Road, HRBR Layout 1st Block', lat: 13.02, lng: 77.64 }
+    const url = googleMapsPlaceUrl(v, 'Bengaluru')
+    expect(url.startsWith('https://www.google.com/maps/search/?api=1&query=')).toBe(true)
+    expect(decodeURIComponent(url.split('query=')[1])).toBe("Bob's Bar, 7th A Main Road, HRBR Layout 1st Block, Bengaluru")
+    expect(googleMapsPlaceUrl({ ...v, maps_url: 'https://maps.google.com/?cid=1' })).toBe('https://maps.google.com/?cid=1')
+    expect(googleMapsPlaceUrl({ lat: 1, lng: 2 })).toContain('query=1.000000,2.000000')
   })
 })

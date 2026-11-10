@@ -192,3 +192,13 @@ export function priceLabel(level, countryCode) {
 export function todayHoursIndex(date = new Date()) {
   return (date.getDay() + 6) % 7
 }
+
+// Link to a venue's own Google Maps page (rating, photos, reviews, hours) without
+// an API key: search Google Maps for "name, address, city". Google returns the
+// place card for a specific name + street. Falls back to the coordinates.
+export function googleMapsPlaceUrl(v, city) {
+  if (v.maps_url) return v.maps_url // Google gave us the exact place link
+  const parts = [v.name, v.address, city].filter((x) => x && String(x).trim())
+  if (!v.name) return googleMapsSearchUrl(v.lat, v.lng)
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parts.join(', '))}`
+}

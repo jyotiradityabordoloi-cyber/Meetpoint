@@ -4,6 +4,7 @@ import {
   formatDistance,
   formatMeetTime,
   formatMinutes,
+  googleMapsPlaceUrl,
   googleMapsSearchUrl,
   modeLabel,
   priceLabel,
@@ -211,7 +212,7 @@ export default function Results({ result, tags, styles, selected, onSelect, meet
   )
 
   const share = async (v) => {
-    const url = v.maps_url || googleMapsSearchUrl(v.lat, v.lng)
+    const url = googleMapsPlaceUrl(v, result.region?.locality)
     const text = `${meetingName}: let's meet at ${v.name}. Longest trip ${formatMinutes(v.max_minutes)}.`
     try {
       if (navigator.share) await navigator.share({ title: v.name, text, url })
@@ -288,7 +289,7 @@ export default function Results({ result, tags, styles, selected, onSelect, meet
 
           const v = it.v
           const price = priceLabel(v.price_level, country)
-          const mapsHref = v.maps_url || googleMapsSearchUrl(v.lat, v.lng)
+          const mapsHref = googleMapsPlaceUrl(v, result.region?.locality)
           return (
             <li key={it.key} className={on ? 'venue-item on' : 'venue-item'}>
               <button type="button" className="venue-row" onClick={() => onSelect(i)} aria-expanded={on}>
@@ -381,7 +382,7 @@ export default function Results({ result, tags, styles, selected, onSelect, meet
                     </button>
                   </div>
                   {v.rating == null && (
-                    <p className="source-note">Ratings, photos and opening hours appear here once a Google Maps key is set.</p>
+                    <p className="source-note">See its rating, photos and reviews on Google Maps.</p>
                   )}
                 </div>
               )}
