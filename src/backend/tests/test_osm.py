@@ -216,3 +216,14 @@ async def test_requests_never_overlap():
     c = OsmMapClient("https://photon.example/", httpx.AsyncClient(transport=httpx.MockTransport(handler)), retry_delay_s=0)
     await c.search_nearby(HAUZ_KHAS, 800, ["restaurant", "bar", "pub"])
     assert live["max"] == 1
+
+
+async def test_cinema_option_maps_to_osm():
+    seen = {}
+
+    def handler(req):
+        seen["tags"] = req.url.params.get_list("osm_tag")
+        return httpx.Response(200, json={"features": [feature("PVR Select Citywalk", 77.2195, 28.5286, value="cinema", osm_id=9)]})
+
+    places = await photon(handler).search_nearby(LatLng(28.5286, 77.2195), 800, ["movie_theater"])
+    assert seen["tags"] == ["amenity:cinema"] and places[0].type == "movie_theater"

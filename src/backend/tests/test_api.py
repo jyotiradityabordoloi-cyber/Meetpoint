@@ -203,3 +203,9 @@ def test_api_responses_are_noindex(make_client):
 )
 def test_database_url_from_hosting_providers(given, expected):
     assert Settings(database_url=given).sqlalchemy_url == expected
+
+
+def test_cinema_is_an_allowed_venue_type(make_client):
+    c = make_client()
+    r = c.post("/api/groups", json={"name": "Movie night", "venue_types": ["movie_theater", "restaurant"]})
+    assert r.status_code == 201 and r.json()["venue_types"] == ["movie_theater", "restaurant"]

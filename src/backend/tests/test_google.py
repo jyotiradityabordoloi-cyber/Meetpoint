@@ -83,6 +83,11 @@ async def test_search_nearby_parses_places():
                         "currentOpeningHours": {"openNow": True},
                         "googleMapsUri": "https://maps.google.com/?cid=1",
                         "primaryType": "cafe",
+                        "priceLevel": "PRICE_LEVEL_MODERATE",
+                        "nationalPhoneNumber": "080 1234 5678",
+                        "internationalPhoneNumber": "+91 80 1234 5678",
+                        "websiteUri": "https://cafe.example",
+                        "regularOpeningHours": {"weekdayDescriptions": ["Monday: 8:00 AM – 10:00 PM", "Tuesday: Closed"]},
                     },
                     {"id": "nolocation"},
                 ]
@@ -91,6 +96,9 @@ async def test_search_nearby_parses_places():
 
     places = await client_with(handler).search_nearby(LatLng(1, 2), 800, ["cafe"])
     assert len(places) == 1 and places[0].name == "Café" and places[0].open_now is True
+    c = places[0]
+    assert c.price_level == 2 and c.phone == "080 1234 5678" and c.phone_intl == "+91 80 1234 5678"
+    assert c.website == "https://cafe.example" and c.hours == ("Monday: 8:00 AM – 10:00 PM", "Tuesday: Closed")
 
     empty = await client_with(lambda r: httpx.Response(200, json={})).search_nearby(LatLng(1, 2), 800, ["cafe"])
     assert empty == []

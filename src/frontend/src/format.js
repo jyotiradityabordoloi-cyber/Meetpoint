@@ -42,6 +42,7 @@ export const VENUE_GROUPS = [
   { id: 'bars', label: 'Bars & pubs', types: ['bar', 'pub'] },
   { id: 'parks', label: 'Parks', types: ['park'] },
   { id: 'malls', label: 'Malls', types: ['shopping_mall'] },
+  { id: 'cinemas', label: 'Cinemas', types: ['movie_theater'] },
 ]
 
 const TYPE_LABELS = {
@@ -53,6 +54,7 @@ const TYPE_LABELS = {
   park: 'Park',
   shopping_mall: 'Mall',
   bakery: 'Bakery',
+  movie_theater: 'Cinema',
 }
 
 export function venueTypeLabel(t) {
@@ -158,4 +160,35 @@ export function saveExactLocation(loc) {
   } catch {
     /* storage blocked: fine, it just won't be remembered */
   }
+}
+
+// Each person gets their own route style from the three-colour palette:
+// orange, black, cream; then the same colours dashed, then dotted.
+// The same style is used for their map marker, avatar and travel bar.
+const PERSON_TONES = ['orange', 'ink', 'cream']
+const PERSON_PATTERNS = ['solid', 'dashed', 'dotted']
+export function personStyle(index) {
+  const tone = PERSON_TONES[index % 3]
+  const pattern = PERSON_PATTERNS[Math.floor(index / 3) % 3]
+  return { tone, pattern, className: `tone-${tone} pat-${pattern}` }
+}
+export function memberStyles(members) {
+  const out = {}
+  members.forEach((m, i) => (out[m.id] = personStyle(i)))
+  return out
+}
+
+const CURRENCY = { IN: '₹', US: '$', GB: '£', JP: '¥', CN: '¥', KR: '₩', CH: 'CHF ' }
+const EURO = new Set(['AT', 'BE', 'CY', 'DE', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PT', 'SI', 'SK'])
+// Google price level 0..4 shown as ₹ / ₹₹ / ₹₹₹ ... in the local currency symbol.
+export function priceLabel(level, countryCode) {
+  if (level == null || level < 1) return null
+  const cc = (countryCode || '').toUpperCase()
+  const sym = CURRENCY[cc] || (EURO.has(cc) ? '€' : '$')
+  return sym.trim().repeat(Math.min(4, level))
+}
+
+// Which line of Google's weekday opening hours is today (they start on Monday).
+export function todayHoursIndex(date = new Date()) {
+  return (date.getDay() + 6) % 7
 }

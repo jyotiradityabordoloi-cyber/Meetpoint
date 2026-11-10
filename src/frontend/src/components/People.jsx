@@ -1,7 +1,7 @@
 import { modeLabel } from '../format.js'
 import Icon, { ModeIcon } from './Icon.jsx'
 
-export default function People({ members, tags, groupMode, onRemove }) {
+export default function People({ members, tags, styles = {}, groupMode, onRemove }) {
   if (members.length === 0) {
     return <p className="empty">No one yet. Add yourself, then share the invite link so friends can add themselves.</p>
   }
@@ -11,7 +11,7 @@ export default function People({ members, tags, groupMode, onRemove }) {
         const mode = m.travel_mode || groupMode
         return (
           <li key={m.id}>
-            <span className="avatar" aria-hidden="true">
+            <span className={`avatar ${styles[m.id]?.className || ''}`} aria-hidden="true">
               {tags[m.id]}
             </span>
             <div className="person">

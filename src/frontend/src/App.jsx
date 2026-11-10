@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, ApiError, track } from './api.js'
-import { centreOf, distanceKm, loadExactLocation, memberTags, saveExactLocation } from './format.js'
+import { centreOf, distanceKm, loadExactLocation, memberStyles, memberTags, saveExactLocation } from './format.js'
 import GroupSettings from './components/GroupSettings.jsx'
 import People from './components/People.jsx'
 import AddPerson from './components/AddPerson.jsx'
@@ -308,6 +308,7 @@ export default function App() {
   }, [invalidate])
 
   const tags = useMemo(() => memberTags(members), [members])
+  const styles = useMemo(() => memberStyles(members), [members])
 
   // Everyone's route to the selected venue (or fair area), for the map.
   const [journeys, setJourneys] = useState(null) // {key, status: 'loading'|'ready'|'error', data}
@@ -445,6 +446,7 @@ export default function App() {
           <MapView
             members={members}
             tags={tags}
+            styles={styles}
             result={result}
             selected={selected}
             onSelect={setSelected}
@@ -493,7 +495,7 @@ export default function App() {
                   <h2>People</h2>
                   <span className="muted">{members.length} / 25</span>
                 </div>
-                <People members={members} tags={tags} groupMode={settings.travel_mode} onRemove={removeMember} />
+                <People members={members} tags={tags} styles={styles} groupMode={settings.travel_mode} onRemove={removeMember} />
                 {members.length < 25 && (
                   <AddPerson
                     groupMode={settings.travel_mode}
@@ -537,6 +539,7 @@ export default function App() {
                 <Results
                   result={result}
                   tags={tags}
+                  styles={styles}
                   selected={selected}
                   journeys={journeys}
                   onSelect={setSelected}

@@ -37,6 +37,7 @@ TYPE_TO_OSM: dict[str, list[str]] = {
     "bakery": ["shop:bakery"],
     "library": ["amenity:library"],
     "museum": ["tourism:museum"],
+    "movie_theater": ["amenity:cinema"],
 }
 OSM_VALUE_TO_TYPE = {
     "cafe": "cafe",
@@ -48,6 +49,7 @@ OSM_VALUE_TO_TYPE = {
     "bakery": "bakery",
     "library": "library",
     "museum": "museum",
+    "cinema": "movie_theater",
 }
 # Fetch once at this radius (nearest first) and reuse it when the engine widens
 # its search step by step (800 m -> 1.5 km -> 3 km).

@@ -36,9 +36,22 @@ PLACES_FIELD_MASK = ",".join(
         "shortFormattedAddress",
         "types",
         "photos",
+        # Same billing tier as rating/openNow (already requested): no extra cost tier.
+        "priceLevel",
+        "nationalPhoneNumber",
+        "internationalPhoneNumber",
+        "websiteUri",
+        "regularOpeningHours.weekdayDescriptions",
     )
 )
 MAX_PHOTOS = 3
+PRICE_LEVELS = {
+    "PRICE_LEVEL_FREE": 0,
+    "PRICE_LEVEL_INEXPENSIVE": 1,
+    "PRICE_LEVEL_MODERATE": 2,
+    "PRICE_LEVEL_EXPENSIVE": 3,
+    "PRICE_LEVEL_VERY_EXPENSIVE": 4,
+}
 PHOTO_URL = "https://places.googleapis.com/v1/{name}/media"
 ROAD_MODES = {"DRIVE", "TWO_WHEELER"}
 
@@ -74,6 +87,11 @@ class Place:
     address: str | None
     # [{"name": "places/../photos/..", "attribution": "Jane D."}], at most MAX_PHOTOS
     photos: tuple = ()
+    price_level: int | None = None  # 0 free .. 4 very expensive
+    phone: str | None = None
+    phone_intl: str | None = None
+    website: str | None = None
+    hours: tuple = ()  # human-readable lines, Monday first, in the place's language
 
 
 @dataclass(frozen=True)
@@ -260,6 +278,11 @@ class GoogleMapClient:
                     type=p.get("primaryType") or next(iter(p.get("types") or []), None),
                     address=p.get("shortFormattedAddress"),
                     photos=_photos(p.get("photos")),
+                    price_level=PRICE_LEVELS.get(p.get("priceLevel")),
+                    phone=p.get("nationalPhoneNumber"),
+                    phone_intl=p.get("internationalPhoneNumber"),
+                    website=p.get("websiteUri"),
+                    hours=tuple((p.get("regularOpeningHours") or {}).get("weekdayDescriptions") or ()),
                 )
             )
         return places

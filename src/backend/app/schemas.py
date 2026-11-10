@@ -19,6 +19,7 @@ ALLOWED_VENUE_TYPES = {
     "bakery",
     "library",
     "museum",
+    "movie_theater",
 }
 DEFAULT_VENUE_TYPES = ["cafe", "restaurant"]
 

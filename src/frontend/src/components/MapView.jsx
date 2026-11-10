@@ -29,10 +29,18 @@ function venueIcon(n, active) {
   })
 }
 
-function personIcon(tag) {
+// Route look per person tone: line colour, outline colour, flowing-bead colour.
+const TONE = {
+  orange: { line: ORANGE, casing: INK, flow: CREAM },
+  ink: { line: INK, casing: CREAM, flow: ORANGE },
+  cream: { line: CREAM, casing: INK, flow: ORANGE },
+}
+const PATTERN_DASH = { solid: null, dashed: '14 10', dotted: '1 11' }
+
+function personIcon(tag, style) {
   return L.divIcon({
     className: '',
-    html: `<div class="person-marker"><span>${escapeHtml(tag)}</span></div>`,
+    html: `<div class="person-marker ${style?.className || 'tone-ink pat-solid'}"><span>${escapeHtml(tag)}</span></div>`,
     iconSize: [34, 34],
     iconAnchor: [17, 17],
   })
@@ -175,7 +183,7 @@ function primePath(layer, i, kind) {
 }
 
 /** Everyone's journey to the chosen venue: black casing, orange route, flowing cream beads. */
-function Journeys({ journeys, to, names }) {
+function Journeys({ journeys, to, names, styles }) {
   const lines = useMemo(
     () =>
       journeys.map((j, i) => ({
@@ -194,7 +202,7 @@ function Journeys({ journeys, to, names }) {
           // className must be a direct prop: Leaflet only applies it when the path
           // is created, and react-leaflet applies pathOptions later via setStyle().
           className="journey-casing"
-          pathOptions={{ color: INK, weight: 9, opacity: 0.85, lineCap: 'round', lineJoin: 'round' }}
+          pathOptions={{ color: TONE[styles[j.member_id]?.tone || 'orange'].casing, weight: 9, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }}
           eventHandlers={{ add: (e) => primePath(e.target, i, 'casing') }}
         >
           <Tooltip sticky>
@@ -209,8 +217,14 @@ function Journeys({ journeys, to, names }) {
           key={`l-${j.member_id}-${to.lat}-${to.lng}`}
           positions={j.positions}
           interactive={false}
-          className={j.curved ? 'journey-line curved' : 'journey-line'}
-          pathOptions={{ color: ORANGE, weight: 5, lineCap: 'round', lineJoin: 'round' }}
+          className={(styles[j.member_id]?.pattern || 'solid') === 'solid' ? 'journey-line' : 'journey-pattern'}
+          pathOptions={{
+            color: TONE[styles[j.member_id]?.tone || 'orange'].line,
+            weight: 5,
+            lineCap: 'round',
+            lineJoin: 'round',
+            dashArray: PATTERN_DASH[styles[j.member_id]?.pattern || 'solid'],
+          }}
           eventHandlers={{ add: (e) => primePath(e.target, i, 'line') }}
         />
       ))}
@@ -220,7 +234,7 @@ function Journeys({ journeys, to, names }) {
           positions={j.positions}
           interactive={false}
           className="journey-flow"
-          pathOptions={{ color: CREAM, weight: 3, lineCap: 'round' }}
+          pathOptions={{ color: TONE[styles[j.member_id]?.tone || 'orange'].flow, weight: 3, lineCap: 'round' }}
           eventHandlers={{ add: (e) => primePath(e.target, i, 'flow') }}
         />
       ))}
@@ -232,6 +246,7 @@ function Journeys({ journeys, to, names }) {
 export default function MapView({
   members,
   tags,
+  styles = {},
   result,
   selected,
   onSelect,
@@ -300,7 +315,7 @@ export default function MapView({
           )
         })}
 
-        {journeyData && <Journeys journeys={journeyData.journeys} to={journeyData.to} names={names} />}
+        {journeyData && <Journeys journeys={journeyData.journeys} to={journeyData.to} names={names} styles={styles} />}
 
         {venues.map((v, i) => (
           <Marker
@@ -317,7 +332,7 @@ export default function MapView({
         ))}
 
         {members.map((m) => (
-          <Marker key={m.id} position={[m.lat, m.lng]} icon={personIcon(tags[m.id] || '?')} zIndexOffset={1500}>
+          <Marker key={m.id} position={[m.lat, m.lng]} icon={personIcon(tags[m.id] || '?', styles[m.id])} zIndexOffset={1500}>
             <Tooltip direction="top" offset={[0, -16]}>
               {m.name}
             </Tooltip>

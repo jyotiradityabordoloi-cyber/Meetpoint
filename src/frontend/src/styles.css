@@ -1016,13 +1016,6 @@ select:focus {
   transform-origin: left;
   animation: grow 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
-.strips li.longest .strip-bar {
-  background: var(--orange);
-}
-.strips li.longest .avatar.sm {
-  background: var(--orange);
-  color: var(--cream);
-}
 @keyframes grow {
   from {
     transform: scaleX(0);
@@ -1437,5 +1430,430 @@ select:focus {
   .mode-text {
     font-size: 10.5px;
     letter-spacing: -0.01em;
+  }
+}
+
+/* ======================================================================
+   Suggestions list + detail, star ratings, per-person route styles
+   ====================================================================== */
+
+/* ---- per-person tones (orange / black / cream) and patterns ----------- */
+.avatar.tone-orange,
+.person-marker.tone-orange {
+  background: var(--orange);
+  color: var(--cream);
+}
+.avatar.tone-ink,
+.person-marker.tone-ink {
+  background: var(--ink);
+  color: var(--cream);
+}
+.avatar.tone-cream,
+.person-marker.tone-cream {
+  background: var(--cream);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 2px var(--ink);
+}
+.person-marker.tone-cream {
+  border-color: var(--ink);
+  box-shadow: 0 3px 10px var(--ink-40);
+}
+.person-marker.tone-cream span {
+  color: var(--ink);
+}
+.avatar.pat-dashed,
+.person-marker.pat-dashed {
+  outline: 2px dashed var(--ink);
+  outline-offset: 2px;
+}
+.avatar.pat-dotted,
+.person-marker.pat-dotted {
+  outline: 2.5px dotted var(--ink);
+  outline-offset: 2px;
+}
+.avatar.sm.pat-dashed,
+.avatar.sm.pat-dotted {
+  outline-width: 1.5px;
+  outline-offset: 1px;
+}
+.strip-bar.tone-orange {
+  background: var(--orange);
+}
+.strip-bar.tone-ink {
+  background: var(--ink);
+}
+.strip-bar.tone-cream {
+  background: var(--cream);
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+}
+.strip-bar.pat-dashed {
+  background-image: repeating-linear-gradient(90deg, transparent 0 9px, var(--cream-60) 9px 13px);
+}
+.strip-bar.tone-cream.pat-dashed {
+  background-image: repeating-linear-gradient(90deg, transparent 0 9px, var(--ink-40) 9px 13px);
+}
+.strip-bar.pat-dotted {
+  background-image: radial-gradient(circle, var(--cream-80) 1.4px, transparent 1.6px);
+  background-size: 7px 100%;
+}
+.strip-bar.tone-cream.pat-dotted {
+  background-image: radial-gradient(circle, var(--ink-60) 1.4px, transparent 1.6px);
+}
+
+/* patterned routes keep their dash pattern and just fade in */
+.journey-pattern {
+  opacity: 0;
+  animation: fade-in 0.5s ease forwards;
+  animation-delay: var(--delay, 0ms);
+}
+
+/* ---- star ratings ------------------------------------------------------- */
+.stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+}
+.stars-track {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+.stars-base {
+  display: inline-flex;
+  color: var(--ink-15);
+}
+.stars-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: inline-flex;
+  overflow: hidden;
+  white-space: nowrap;
+  color: var(--orange);
+}
+.stars .dim {
+  color: var(--muted);
+}
+
+/* ---- suggestion list ---------------------------------------------------- */
+.venue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.venue-item {
+  background: var(--cream);
+  border: 1px solid var(--ink-15);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.venue-item.on {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 2px var(--orange-15), var(--shadow);
+}
+.venue-row {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px 10px 10px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.venue-row:hover .row-name {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.thumb {
+  position: relative;
+  width: 78px;
+  height: 78px;
+  border-radius: 14px;
+  overflow: hidden;
+  background:
+    repeating-radial-gradient(circle at 80% 30%, var(--orange-15) 0 1.5px, transparent 1.5px 12px),
+    var(--ink);
+  display: grid;
+  place-items: center;
+}
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.thumb-letter {
+  font-family: var(--serif);
+  font-size: 36px;
+  line-height: 1;
+  color: var(--cream);
+}
+.thumb-rank {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--orange);
+  color: var(--cream);
+  font-size: 12px;
+  font-weight: 700;
+}
+.row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.row-name {
+  font-family: var(--serif);
+  font-size: 19px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.row-type,
+.row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.row-meta strong {
+  color: var(--ink);
+}
+.open-now {
+  color: var(--ink);
+  font-weight: 600;
+}
+.row-chevron {
+  color: var(--ink-40);
+  transition: transform 0.2s;
+}
+.venue-item.on .row-chevron {
+  transform: rotate(90deg);
+  color: var(--orange);
+}
+
+/* ---- detail panel ------------------------------------------------------- */
+.venue-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 14px 16px;
+  border-top: 1px dashed var(--ink-15);
+  animation: open-detail 0.25s ease;
+}
+@keyframes open-detail {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+.gallery {
+  position: relative;
+  height: 200px;
+  margin-top: 10px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--ink);
+}
+.gallery-track {
+  display: flex;
+  height: 100%;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.gallery-track::-webkit-scrollbar {
+  display: none;
+}
+.gallery-track img {
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  scroll-snap-align: start;
+  user-select: none;
+}
+.gallery-dots {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 5px;
+}
+.gallery-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cream-60);
+}
+.gallery-dots span.on {
+  width: 16px;
+  border-radius: 999px;
+  background: var(--cream);
+}
+.gallery-credit {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  font-size: 10px;
+  color: var(--cream-80);
+  text-shadow: 0 1px 2px var(--ink);
+}
+.detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+}
+.detail-head h3 {
+  font-size: 24px;
+}
+.fair-pill {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--cream);
+  font-size: 12px;
+  font-weight: 600;
+}
+.detail-meta {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.info-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+}
+.info-rows li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.info-rows .icon {
+  color: var(--orange);
+  margin-top: 2px;
+}
+.info-rows a {
+  color: var(--ink);
+  text-decoration-color: var(--orange);
+  text-underline-offset: 3px;
+  word-break: break-word;
+}
+.hours {
+  font-size: 14px;
+}
+.hours summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  list-style: none;
+}
+.hours summary::-webkit-details-marker {
+  display: none;
+}
+.hours summary .icon:first-child {
+  color: var(--orange);
+}
+.hours-chevron {
+  margin-left: auto;
+  color: var(--ink-40);
+  transition: transform 0.2s;
+}
+.hours[open] .hours-chevron {
+  transform: rotate(90deg);
+}
+.hours ul {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0 0 0 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--muted);
+}
+.hours li.today {
+  color: var(--ink);
+  font-weight: 700;
+}
+.venue-detail .summary strong {
+  color: var(--orange);
+}
+.venue-detail .dim {
+  color: var(--muted);
+}
+.venue-detail .strip-track {
+  background: var(--ink-08);
+}
+.venue-detail .mode-mini {
+  color: var(--ink-40);
+}
+.venue-detail .journey-note,
+.source-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.longest-tag {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--orange-15);
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+@media (max-width: 480px) {
+  .venue-row {
+    grid-template-columns: 66px minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+  .thumb {
+    width: 66px;
+    height: 66px;
+  }
+  .row-name {
+    font-size: 17px;
+  }
+  .gallery {
+    height: 170px;
+  }
+  .strips li {
+    grid-template-columns: minmax(56px, 80px) 1fr auto;
+  }
+  .longest-tag {
+    display: none;
   }
 }

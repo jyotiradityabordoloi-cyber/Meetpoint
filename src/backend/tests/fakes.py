@@ -115,6 +115,10 @@ class FakeMapClient:
                     maps_url=f"https://maps.google.com/?cid={pid}",
                     type=types[i % len(types)] if types else None,
                     address=None,
+                    price_level=None if i % 4 == 3 else (i % 3) + 1,
+                    hours=tuple(
+                        f"{d}: 9:00 AM – 11:00 PM" for d in ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+                    ),
                 )
             )
         return places
