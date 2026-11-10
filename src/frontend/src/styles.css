@@ -1852,3 +1852,54 @@ select:focus {
     display: none;
   }
 }
+
+/* ---- venue pins on the map: rating pill with a kind-of-place glyph ----- */
+.venue-tag {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px 4px 7px;
+  border-radius: 999px;
+  background: var(--orange);
+  color: var(--cream);
+  border: 2px solid var(--cream);
+  box-shadow: 0 3px 10px var(--ink-40);
+  font: 700 13px/1 var(--sans);
+  white-space: nowrap;
+  /* the point of the tail sits on the place */
+  transform: translate(-50%, calc(-100% - 8px));
+  transition: transform 0.15s;
+}
+.venue-tag::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  width: 10px;
+  height: 10px;
+  background: inherit;
+  border-right: 2px solid var(--cream);
+  border-bottom: 2px solid var(--cream);
+  transform: translateX(-50%) rotate(45deg);
+  border-bottom-right-radius: 2px;
+}
+.venue-tag.no-rating {
+  padding: 5px;
+}
+.venue-tag.on {
+  background: var(--ink);
+  border-color: var(--orange);
+  font-size: 15px;
+  padding: 6px 11px 6px 9px;
+  transform: translate(-50%, calc(-100% - 9px)) scale(1.04);
+}
+.venue-tag.on::after {
+  border-color: var(--orange);
+}
+.venue-tag.on svg {
+  color: var(--orange);
+}
+.venue-tag.no-rating.on {
+  padding: 7px;
+}
