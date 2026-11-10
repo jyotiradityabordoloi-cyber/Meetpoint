@@ -127,15 +127,11 @@ a {
   min-width: 0;
 }
 .logo {
-  width: 32px;
-  height: 32px;
+  width: 54px;
+  height: auto;
   flex: none;
   color: var(--cream);
-}
-.logo circle:first-child {
-  fill: var(--ink);
-  stroke: var(--cream);
-  stroke-width: 2;
+  display: block;
 }
 .brand h1 {
   font-size: 22px;
@@ -1327,9 +1323,8 @@ select:focus {
   margin-bottom: 12px;
 }
 .prerender .logo {
-  display: inline-block;
-  border-radius: 50%;
-  background: radial-gradient(circle at center, var(--orange) 0 7px, var(--ink) 8px);
+  width: 72px;
+  height: auto;
 }
 .prerender h1 {
   font-size: 40px;
@@ -1398,8 +1393,8 @@ select:focus {
     font-size: 20px;
   }
   .logo {
-    width: 28px;
-    height: 28px;
+    width: 44px;
+    height: auto;
   }
 }
 @media (max-width: 480px) {

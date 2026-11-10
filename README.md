@@ -1,3 +1,5 @@
+<p align="center"><img src="src/frontend/public/logo.svg" alt="MeetPoint logo" width="180"></p>
+
 # MeetPoint
 
 [![CI](https://github.com/jyotiradityabordoloi-cyber/Meetpoint/actions/workflows/ci.yml/badge.svg)](https://github.com/jyotiradityabordoloi-cyber/Meetpoint/actions/workflows/ci.yml)

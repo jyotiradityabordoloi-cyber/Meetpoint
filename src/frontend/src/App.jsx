@@ -6,6 +6,7 @@ import People from './components/People.jsx'
 import AddPerson from './components/AddPerson.jsx'
 import Results from './components/Results.jsx'
 import MapView from './components/MapView.jsx'
+import LogoMark from './components/LogoMark.jsx'
 
 const DEFAULT_SETTINGS = {
   name: 'Our meetup',
@@ -411,11 +412,7 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <svg className="logo" viewBox="0 0 64 64" aria-hidden="true">
-            <circle cx="32" cy="32" r="30" fill="currentColor" />
-            <circle cx="32" cy="32" r="18" fill="none" stroke="var(--cream)" strokeWidth="3" strokeDasharray="5 5" />
-            <circle cx="32" cy="32" r="8" fill="var(--orange)" />
-          </svg>
+          <LogoMark className="logo" />
           <div>
             <h1>MeetPoint</h1>
             <p className="tagline">A meeting place that's fair for everyone to reach</p>
