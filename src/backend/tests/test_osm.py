@@ -21,7 +21,7 @@ HAUZ_KHAS = LatLng(28.5494, 77.2001)
 
 
 def photon(handler):
-    return OsmMapClient("https://photon.example/", httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    return OsmMapClient("https://photon.example/", httpx.AsyncClient(transport=httpx.MockTransport(handler)), retry_delay_s=0)
 
 
 async def test_search_nearby_maps_types_to_osm_tags_and_parses():
@@ -186,3 +186,33 @@ async def test_request_budget_fairest_area_per_kind_others_combined():
     assert len(calls) == 5
     assert calls[:3] == [("amenity:restaurant",), ("amenity:bar",), ("amenity:pub",)]
     assert calls[3:] == [("amenity:restaurant", "amenity:bar", "amenity:pub")] * 2
+
+
+async def test_busy_server_is_retried_once():
+    attempts = []
+
+    def handler(req):
+        attempts.append(1)
+        if len(attempts) == 1:
+            return httpx.Response(429, text="slow down")
+        return httpx.Response(200, json={"features": [feature("Kaffeine", 77.1942, 28.5536, value="pub", osm_id=5)]})
+
+    places = await photon(handler).search_nearby(HAUZ_KHAS, 1500, ["pub"])
+    assert [p.name for p in places] == ["Kaffeine"] and len(attempts) == 2
+
+
+async def test_requests_never_overlap():
+    import asyncio as _asyncio
+
+    live = {"now": 0, "max": 0}
+
+    async def handler(req):
+        live["now"] += 1
+        live["max"] = max(live["max"], live["now"])
+        await _asyncio.sleep(0.01)
+        live["now"] -= 1
+        return httpx.Response(200, json={"features": []})
+
+    c = OsmMapClient("https://photon.example/", httpx.AsyncClient(transport=httpx.MockTransport(handler)), retry_delay_s=0)
+    await c.search_nearby(HAUZ_KHAS, 800, ["restaurant", "bar", "pub"])
+    assert live["max"] == 1

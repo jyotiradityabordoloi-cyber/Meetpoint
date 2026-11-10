@@ -68,19 +68,30 @@ class OsmMapClient:
 
     estimates_only = True
 
-    def __init__(self, photon_url: str, http: httpx.AsyncClient, concurrency: int = 4):
+    def __init__(self, photon_url: str, http: httpx.AsyncClient, concurrency: int = 1, retry_delay_s: float = 1.2):
         self._base = photon_url.rstrip("/")
         self._http = http
-        self._sem = asyncio.Semaphore(concurrency)  # be polite to the shared server
+        # One request at a time: the shared public server rejects bursts.
+        self._sem = asyncio.Semaphore(concurrency)
+        self._retry_delay_s = retry_delay_s
         self._cache: dict[tuple, asyncio.Task] = {}  # per request: (lat, lng, tags, radius) -> fetch
         self._centres: list[tuple[float, float]] = []  # areas in the order the engine asks (fairest first)
 
     async def _get(self, path: str, params: list[tuple[str, str]]) -> dict:
         async with self._sem:
-            try:
-                r = await self._http.get(f"{self._base}{path}", params=params, headers=UA)
-            except httpx.HTTPError as e:
-                raise GoogleError("network", type(e).__name__) from e
+            for attempt in (1, 2):
+                try:
+                    r = await self._http.get(f"{self._base}{path}", params=params, headers=UA)
+                except httpx.HTTPError as e:
+                    if attempt == 2:
+                        raise GoogleError("network", type(e).__name__) from e
+                    await asyncio.sleep(self._retry_delay_s)
+                    continue
+                if r.status_code in (429, 502, 503, 504) and attempt == 1:
+                    log.info("photon busy (%s), retrying once", r.status_code)
+                    await asyncio.sleep(self._retry_delay_s)
+                    continue
+                break
         if r.status_code >= 400:
             raise GoogleError("quota" if r.status_code == 429 else "unavailable", r.text[:200], r.status_code)
         try:
