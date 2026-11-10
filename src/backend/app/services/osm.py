@@ -182,6 +182,7 @@ class OsmMapClient:
                         maps_url=None,  # client links to the coordinates in Google Maps
                         type=OSM_VALUE_TO_TYPE.get(p.get("osm_value", ""), p.get("osm_value")),
                         address=_address(p),
+                        types=(OSM_VALUE_TO_TYPE.get(p.get("osm_value", ""), p.get("osm_value") or ""),),
                     ),
                 )
             )

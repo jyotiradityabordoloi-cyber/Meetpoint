@@ -91,6 +91,7 @@ class Place:
     phone: str | None = None
     phone_intl: str | None = None
     website: str | None = None
+    types: tuple = ()  # all type ids (e.g. "indian_restaurant", "restaurant", "food")
     hours: tuple = ()  # human-readable lines, Monday first, in the place's language
 
 
@@ -283,6 +284,7 @@ class GoogleMapClient:
                     phone_intl=p.get("internationalPhoneNumber"),
                     website=p.get("websiteUri"),
                     hours=tuple((p.get("regularOpeningHours") or {}).get("weekdayDescriptions") or ()),
+                    types=tuple(p.get("types") or ()),
                 )
             )
         return places

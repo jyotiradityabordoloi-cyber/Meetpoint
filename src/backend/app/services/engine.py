@@ -103,6 +103,19 @@ def venue_quality(
     return 0.6 * (bayesian_rating(rating, n, prior, k) / 5.0) + 0.25 * open_term + 0.15 * closeness
 
 
+# Kinds of place as the user picks them: a coffee shop counts as a cafe.
+CANONICAL_KIND = {"coffee_shop": "cafe"}
+
+
+def kind_of(place: Place, wanted: set[str]) -> str:
+    """The requested kind this place satisfies (Google gives granular types)."""
+    for t in (*getattr(place, "types", ()), place.type):
+        k = CANONICAL_KIND.get(t, t)
+        if k in wanted:
+            return k
+    return CANONICAL_KIND.get(place.type, place.type) or "place"
+
+
 def pick_varied(ranked: list[dict], n: int, key=lambda v: (v["final"], v["S"])) -> list[dict]:
     """Top n, but with one of each kind of place first when several kinds exist.
 
@@ -110,14 +123,14 @@ def pick_varied(ranked: list[dict], n: int, key=lambda v: (v["final"], v["S"])) 
     just because they happen to be closest. Each kind's best option gets a
     place (in score order), then the remaining slots go purely by score.
     """
-    kinds = {v["place"].type for v in ranked}
+    kinds = {v.get("kind", v["place"].type) for v in ranked}
     if len(kinds) <= 1:
         return ranked[:n]
     chosen: list[dict] = []
     seen: set = set()
     for v in ranked:
-        if v["place"].type not in seen:
-            seen.add(v["place"].type)
+        if v.get("kind", v["place"].type) not in seen:
+            seen.add(v.get("kind", v["place"].type))
             chosen.append(v)
         if len(chosen) >= n:
             break
@@ -499,6 +512,9 @@ async def _search_venues(ctx: _Ctx, maps: _Counting, top: list[dict], types: lis
     """Search each top zone (in parallel), widening the radius until enough venues appear."""
     steps = ctx.settings.venue_radius_steps_m
     need = ctx.settings.min_venues_per_zone
+    # Keep widening until every kind asked for (e.g. cinemas, not just the
+    # restaurants that are everywhere) has at least one option, or the max radius.
+    wanted = {CANONICAL_KIND.get(t, t) for t in types}
     failed = False
 
     async def one_zone(zi: int, zone: dict) -> list[tuple[Place, int, float]]:
@@ -514,7 +530,8 @@ async def _search_venues(ctx: _Ctx, maps: _Counting, top: list[dict], types: lis
                 break
             for p in places:
                 found.setdefault(p.id, p)
-            if len(found) >= need:
+            have = {kind_of(p, wanted) for p in found.values()}
+            if len(found) >= need and wanted <= have:
                 break
         return [(p, zi, radius) for p in found.values()]
 
@@ -536,7 +553,7 @@ async def _search_venues(ctx: _Ctx, maps: _Counting, top: list[dict], types: lis
                 ctx.settings.bayes_prior_rating,
                 ctx.settings.bayes_prior_weight,
             )
-            entry = {"place": place, "zone_index": zi, "zone_score": zone["score"], "quality": q}
+            entry = {"place": place, "kind": kind_of(place, wanted), "zone_index": zi, "zone_score": zone["score"], "quality": q}
             prev = best.get(place.id)
             if prev is None or (entry["zone_score"], -q) < (prev["zone_score"], -prev["quality"]):
                 best[place.id] = entry

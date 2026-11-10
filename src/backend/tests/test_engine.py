@@ -273,3 +273,63 @@ def test_pick_varied_mixes_kinds_then_fills_by_score():
     assert names == ["r1", "r2", "r3", "b1", "p1"]
     one_kind = [v(f"r{i}", "restaurant", i) for i in range(7)]
     assert [x["place"].name for x in pick_varied(one_kind, 5)] == ["r0", "r1", "r2", "r3", "r4"]
+
+
+def test_widens_until_every_requested_kind_is_found():
+    """Restaurants everywhere, the only cinema 2 km out: the cinema still makes the list."""
+    from app.services.google import Place
+
+    centre_seen = []
+
+    class Sparse(FakeMapClient):
+        async def search_nearby(self, center, radius_m, types):
+            self.places_calls.append({"center": center, "radius": radius_m, "types": list(types)})
+            centre_seen.append(radius_m)
+            out = []
+            for i in range(6):
+                p = geo.destination_point(center, i * 60, 0.2 + 0.05 * i)
+                out.append(
+                    Place(
+                        id=f"r{center.lat:.4f}{i}",
+                        name=f"Resto {i}",
+                        lat=p.lat,
+                        lng=p.lng,
+                        rating=4.2,
+                        ratings=300,
+                        open_now=True,
+                        maps_url=None,
+                        type="indian_restaurant",
+                        address=None,
+                        types=("indian_restaurant", "restaurant"),
+                    )
+                )
+            if radius_m >= 3000:
+                p = geo.destination_point(center, 90, 2.0)
+                out.append(
+                    Place(
+                        id=f"c{center.lat:.4f}",
+                        name="Big Cinema",
+                        lat=p.lat,
+                        lng=p.lng,
+                        rating=4.0,
+                        ratings=900,
+                        open_now=True,
+                        maps_url=None,
+                        type="movie_theater",
+                        address=None,
+                        types=("movie_theater",),
+                    )
+                )
+            return out
+
+    res = run(group_around(CITIES["bengaluru"], n=4), Sparse(), types=("restaurant", "movie_theater"))
+    names = [v["name"] for v in res["venues"]]
+    assert "Big Cinema" in names
+    assert 3000 in centre_seen  # it widened to find the cinema
+    assert len(res["venues"]) == 5
+
+
+def test_stops_early_when_all_kinds_found():
+    maps = FakeMapClient(venues_per_search=6)
+    run(group_around(CITIES["lisbon"]), maps, types=("cafe", "restaurant"))
+    assert {c["radius"] for c in maps.places_calls} == {800}
