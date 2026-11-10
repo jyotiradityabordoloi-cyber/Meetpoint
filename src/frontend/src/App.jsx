@@ -461,8 +461,9 @@ export default function App() {
         <aside className="panel">
           {!mapsConfigured && (
             <div className="banner warn" role="status">
-              Running without a Google Maps key: travel times are estimates and the fairest areas are shown instead of
-              venues.
+              {health?.venues === 'osm'
+                ? 'Places come from OpenStreetMap (no ratings or photos yet) and travel times are estimated from distance.'
+                : 'Running without a Google Maps key: travel times are estimates and the fairest areas are shown instead of venues.'}
             </div>
           )}
           {notice && (

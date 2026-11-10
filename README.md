@@ -38,14 +38,14 @@ Validate ─► Centre ─► Zones ─► Zone matrix ─► Score ─► Venue
 2. **Candidate zones**: the centre, 6 points on a ring at r/2, 12 points on a ring at r, and the centroid, where `r = clamp(0.25 × group spread, 0.5 km, 10 km)`. The number of zones is reduced when needed so each route-matrix request stays within Google's limits (625 elements, or 100 for transit).
 3. **Travel times**: one route-matrix request per travel mode in use. Zones that anyone can't reach (water, no service) are dropped.
 4. **Fairness score**: `S = 0.5·max + 0.3·σ + 0.2·mean` in minutes, lower is better. Trips of 20/20/20 minutes score 14.0. Trips of 5/10/45 minutes (same total) score 31.8. The app also shows a fairness index, `1 − σ/mean`.
-5. **Venues**: Places searches around the 3 fairest zones, which must be at least 0.4·r apart. Venue quality is `Q = 0.6·(Bayesian rating/5) + 0.25·open-now + 0.15·closeness to the zone`, so a 5.0 rating from 3 reviews doesn't beat a 4.6 from 2,000.
+5. **Venues**: Places searches around the 3 fairest zones, which must be at least 0.4·r apart. When you ask for several kinds of place (for example restaurants, bars and pubs), the final five include the best of each kind before filling up by score. Venue quality is `Q = 0.6·(Bayesian rating/5) + 0.25·open-now + 0.15·closeness to the zone`, so a 5.0 rating from 3 reviews doesn't beat a 4.6 from 2,000.
 6. **Final rank**: the 10 best venues get traffic-aware travel times for every person, then `Final = 0.7·normalised S + 0.3·(1 − Q)`. The 5 lowest are returned.
 
 **Fallbacks** (it degrades rather than failing):
 
 | Failure | What happens |
 |---|---|
-| No Google key | Distance-based estimates; fairest zones shown, no venues |
+| No Google key | With `PHOTON_URL` set: real venues and area names from OpenStreetMap (no ratings or photos) and distance-based time estimates. Without it: fairest zones only |
 | Routes API error | `distance × 1.3` at a typical speed for the mode; result marked *estimated* |
 | Two-wheeler not offered in the country | Retried as driving, with a notice |
 | No venues found or Places API error | Fairest zones shown instead |
@@ -111,7 +111,7 @@ npm install
 npm run dev                 # http://localhost:5173 (proxies /api to :8000)
 ```
 
-**No Google key yet?** The app still runs: travel times are estimates and the fairest zones are shown instead of venues. To try the whole app locally, run the demo API (development only). It uses real place search, area names and journey paths from OpenStreetMap (Photon and OSRM), finds your city from your IP address, and makes up venues and travel times:
+**No Google key yet?** The app still runs. With `PHOTON_URL` set it suggests real cafés, restaurants, bars, pubs, parks and malls from OpenStreetMap. Each suggestion has a name and address but no ratings or photos, and travel times are estimated from distance. To try the whole app locally, run the demo API (development only). It uses OpenStreetMap for place search, venues, area names and journey paths (Photon and OSRM), and finds your city from your IP address:
 
 ```bash
 cd src/backend

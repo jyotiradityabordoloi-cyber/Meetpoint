@@ -249,3 +249,27 @@ def test_weights_are_configuration():
     res = run(group_around(CITIES["lisbon"]), FakeMapClient(), settings=custom)
     z = res["zones"][0]
     assert z["score"] == pytest.approx(max(z["minutes"].values()), abs=0.1)
+
+
+def test_pick_varied_mixes_kinds_then_fills_by_score():
+    from types import SimpleNamespace
+
+    from app.services.engine import pick_varied
+
+    def v(name, kind, score):
+        return {"place": SimpleNamespace(type=kind, name=name), "final": score, "S": score}
+
+    ranked = [
+        v("r1", "restaurant", 0.1),
+        v("r2", "restaurant", 0.2),
+        v("r3", "restaurant", 0.3),
+        v("b1", "bar", 0.4),
+        v("r4", "restaurant", 0.5),
+        v("p1", "pub", 0.6),
+        v("r5", "restaurant", 0.7),
+    ]
+    names = [x["place"].name for x in pick_varied(ranked, 5)]
+    assert set(names) >= {"b1", "p1"} and names[0] == "r1"
+    assert names == ["r1", "r2", "r3", "b1", "p1"]
+    one_kind = [v(f"r{i}", "restaurant", i) for i in range(7)]
+    assert [x["place"].name for x in pick_varied(one_kind, 5)] == ["r0", "r1", "r2", "r3", "r4"]

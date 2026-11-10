@@ -68,6 +68,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "ok": True,
             "maps_configured": settings.maps_configured,
             "search": "google" if settings.maps_configured else ("photon" if settings.photon_url else None),
+            "venues": "google" if settings.maps_configured else ("osm" if settings.photon_url else None),
         }
 
     if not settings.maps_configured:

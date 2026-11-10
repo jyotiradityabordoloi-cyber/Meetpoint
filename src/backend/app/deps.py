@@ -10,6 +10,7 @@ from fastapi import Request
 from .config import Settings
 from .errors import ApiError
 from .services.google import GoogleMapClient, MapClient
+from .services.osm import OsmMapClient
 from .services.routes import GoogleRoutes, JourneyRouter, OsrmRoutes
 from .services.search import GooglePlacesSearch, PhotonSearch, SearchProvider
 
@@ -22,6 +23,11 @@ async def get_maps(request: Request) -> AsyncIterator[MapClient | None]:
     """One Google client per request, or None when no key is configured."""
     settings: Settings = request.app.state.settings
     if not settings.maps_configured:
+        if settings.photon_url:
+            # No Google key: real venue names and area names from OpenStreetMap.
+            async with httpx.AsyncClient(timeout=httpx.Timeout(6.0, connect=3.0)) as http:
+                yield OsmMapClient(settings.photon_url, http)
+            return
         yield None
         return
     async with httpx.AsyncClient(timeout=httpx.Timeout(settings.google_timeout_s, connect=3.0)) as http:

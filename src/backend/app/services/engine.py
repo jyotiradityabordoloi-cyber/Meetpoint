@@ -103,6 +103,32 @@ def venue_quality(
     return 0.6 * (bayesian_rating(rating, n, prior, k) / 5.0) + 0.25 * open_term + 0.15 * closeness
 
 
+def pick_varied(ranked: list[dict], n: int, key=lambda v: (v["final"], v["S"])) -> list[dict]:
+    """Top n, but with one of each kind of place first when several kinds exist.
+
+    Asking for "restaurants, bars and pubs" should not return five restaurants
+    just because they happen to be closest. Each kind's best option gets a
+    place (in score order), then the remaining slots go purely by score.
+    """
+    kinds = {v["place"].type for v in ranked}
+    if len(kinds) <= 1:
+        return ranked[:n]
+    chosen: list[dict] = []
+    seen: set = set()
+    for v in ranked:
+        if v["place"].type not in seen:
+            seen.add(v["place"].type)
+            chosen.append(v)
+        if len(chosen) >= n:
+            break
+    for v in ranked:
+        if len(chosen) >= n:
+            break
+        if v not in chosen:
+            chosen.append(v)
+    return sorted(chosen, key=key)
+
+
 def normalise(values: Sequence[float]) -> list[float]:
     lo, hi = min(values), max(values)
     if hi - lo < 1e-12:
@@ -118,6 +144,8 @@ class _Counting:
     and counts every call so the payload can report the cost of a search."""
 
     def __init__(self, inner: MapClient, settings: Settings):
+        # Clients without a routing matrix (OpenStreetMap mode) only give estimates.
+        self.estimates_only = bool(getattr(inner, "estimates_only", False))
         self.inner = inner
         self.settings = settings
         self.matrix_calls = 0
@@ -192,7 +220,7 @@ async def _matrix_for_mode(
     ctx: _Ctx, mode: str, members: list[EngineMember], dests: Sequence[LatLng], traffic_aware: bool
 ) -> tuple[str, Matrix]:
     origins = [m.point for m in members]
-    if ctx.maps is None:
+    if ctx.maps is None or ctx.maps.estimates_only:
         ctx.estimated = True
         return mode, _estimate(ctx, mode, origins, dests)
 
@@ -385,7 +413,7 @@ async def find_meeting_point(
         for v, zn in zip(pool, zone_norm):
             v["prelim"] = s.final_weight_fairness * zn + (1 - s.final_weight_fairness) * (1 - v["quality"])
         pool.sort(key=lambda v: v["prelim"])
-        pool = pool[: s.venue_pool_size]
+        pool = pick_varied(pool, s.venue_pool_size, key=lambda v: v["prelim"])
 
         vrows = await _travel_matrix(ctx, [LatLng(v["place"].lat, v["place"].lng) for v in pool], traffic_aware=True)
         timed = []
@@ -404,7 +432,7 @@ async def find_meeting_point(
             for v, sn in zip(timed, s_norm):
                 v["final"] = s.final_weight_fairness * sn + (1 - s.final_weight_fairness) * (1 - v["quality"])
             timed.sort(key=lambda v: (v["final"], v["S"]))
-            for v in timed[: s.venues_to_return]:
+            for v in pick_varied(timed, s.venues_to_return):
                 p: Place = v["place"]
                 venues_out.append(
                     {
@@ -441,7 +469,10 @@ async def find_meeting_point(
     timings["total_ms"] = (time.perf_counter() - t0) * 1000
 
     if ctx.estimated:
-        ctx.warn("ESTIMATED_TIMES", "Live travel times weren't available, so times are estimated from distance.")
+        if counting is not None and counting.estimates_only:
+            ctx.warn("ESTIMATED_TIMES", "Travel times are estimated from distance (live traffic needs a Google Maps key).")
+        else:
+            ctx.warn("ESTIMATED_TIMES", "Live travel times weren't available, so times are estimated from distance.")
 
     return {
         "center": {"lat": round(centre.lat, 6), "lng": round(centre.lng, 6)},

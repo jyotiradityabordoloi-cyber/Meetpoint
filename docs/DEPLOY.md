@@ -62,7 +62,7 @@ Open your Vercel address. You have a public MeetPoint link to share.
 
 - **Website:** `https://<your-site>.vercel.app` shows the map and the form.
 - **API through Vercel:** `https://<your-site>.vercel.app/api/health` returns the same JSON as in step 2.5.
-- **Full flow:** add two people with search, then press **Find meeting point**. Without a Google key you get the *fairest areas* (no venues), with road routes drawn on the map.
+- **Full flow:** add two people with search, then press **Find meeting point**. Without a Google key you get real cafés, restaurants, bars and pubs from OpenStreetMap (names and addresses, no ratings or photos), with road routes drawn on the map.
 - **Location:** `https://<your-site>.vercel.app/api/locate` shows whether the server can tell your city (see *Limits* below).
 
 ## 5. Turn on real venues, photos and live travel times (Google)
@@ -88,7 +88,7 @@ Push to `main` on GitHub. Vercel and Render both redeploy automatically. CI runs
 | Render free API sleeps after ~15 minutes without visits | The first visit after a break waits ~30–60 s. The site shows "Waking up the server…". | Optional: a free uptime monitor (for example UptimeRobot) that opens `/health` every 10 minutes keeps it awake. One always-on free service fits in Render's monthly free hours. |
 | Neon free storage (about 0.5 GB) | Plenty: groups are deleted after 30 days. | — |
 | Vercel Hobby plan | Personal, non-commercial use only. | Upgrade if MeetPoint becomes a business. |
-| Public OpenStreetMap search and routing (Photon, OSRM) | Fair-use servers, used only while there's no Google key. | Add a Google key, or self-host Photon and OSRM, before real traffic. |
+| Public OpenStreetMap search, venues and routing (Photon, OSRM) | Fair-use servers, used only while there's no Google key. A search makes about 5 Photon requests; if Photon is busy, the site shows the fairest areas instead of venues. | Add a Google key, or self-host Photon and OSRM, before real traffic. |
 | "Opens on your city" from the IP address | Needs location headers from the hosting edge, or a GeoIP database file. Vercel may not pass its location headers through the `/api` forwarding; check `/api/locate`. | Either put the site behind Cloudflare and turn on *visitor location headers*, or add a free MaxMind GeoLite2-City file and set `GEOIP_DB_PATH`. Without either, the map starts on the world view and search isn't ranked by location until the first person is added. |
 | Free tier terms | Providers change their free plans from time to time. | Check each site's current pricing page. |
 
