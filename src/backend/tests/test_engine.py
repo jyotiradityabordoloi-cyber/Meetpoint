@@ -65,7 +65,7 @@ def test_bayesian_rating_prefers_many_reviews():
 def test_pipeline_in_many_cities(city):
     maps = FakeMapClient()
     res = run(group_around(CITIES[city], n=5), maps)
-    assert 1 <= len(res["venues"]) <= 5
+    assert 1 <= len(res["venues"]) <= 10
     assert res["zones"] and len(res["zones"]) <= 3
     assert not res["estimated"]
     assert res["region"]["locality"] == "Test City"
@@ -326,10 +326,29 @@ def test_widens_until_every_requested_kind_is_found():
     names = [v["name"] for v in res["venues"]]
     assert "Big Cinema" in names
     assert 3000 in centre_seen  # it widened to find the cinema
-    assert len(res["venues"]) == 5
+    assert len(res["venues"]) >= 5
 
 
 def test_stops_early_when_all_kinds_found():
     maps = FakeMapClient(venues_per_search=6)
     run(group_around(CITIES["lisbon"]), maps, types=("cafe", "restaurant"))
     assert {c["radius"] for c in maps.places_calls} == {800}
+
+
+def test_up_to_ten_places_by_default():
+    res = run(group_around(CITIES["lisbon"], n=4), FakeMapClient(venues_per_search=8))
+    assert len(res["venues"]) == 10
+    assert len({v["id"] for v in res["venues"]}) == 10
+
+
+def test_load_more_skips_shown_places_and_looks_wider():
+    import asyncio
+
+    members = group_around(CITIES["tokyo"], n=4)
+    first = run(members, FakeMapClient())
+    shown = frozenset(v["id"] for v in first["venues"])
+    maps = FakeMapClient()
+    more = asyncio.run(find_meeting_point(EngineInput(members, ["cafe", "restaurant"]), maps, S, now=NOW, exclude_ids=shown, wider=True))
+    assert more["venues"] and not ({v["id"] for v in more["venues"]} & shown)
+    assert max(c["radius"] for c in maps.places_calls) == S.load_more_radius_m or len(maps.places_calls) >= 4
+    assert len(more["zones"]) <= S.top_zones + S.load_more_extra_zones

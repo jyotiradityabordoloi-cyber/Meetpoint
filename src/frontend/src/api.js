@@ -48,6 +48,7 @@ export const api = {
   removeMember: (id, mid) =>
     request('DELETE', `/api/groups/${encodeURIComponent(id)}/members/${encodeURIComponent(mid)}`),
   meetingPoint: (id) => request('POST', `/api/groups/${encodeURIComponent(id)}/meeting-point`),
+  morePlaces: (id) => request('POST', `/api/groups/${encodeURIComponent(id)}/meeting-point/more`),
   recommendations: (id, limit = 1) =>
     request('GET', `/api/groups/${encodeURIComponent(id)}/recommendations?limit=${limit}`),
   geocode: (q) => request('GET', `/api/geocode?q=${encodeURIComponent(q)}`),

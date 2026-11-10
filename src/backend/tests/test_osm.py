@@ -144,7 +144,7 @@ def test_engine_returns_named_osm_venues_with_estimated_times():
     res = asyncio.run(
         find_meeting_point(EngineInput(members, ["restaurant", "bar", "pub"]), photon(handler), s, now=datetime(2026, 11, 10, tzinfo=UTC))
     )
-    assert 3 <= len(res["venues"]) <= 5
+    assert 3 <= len(res["venues"]) <= 10
     assert all(v["name"].startswith("Place ") for v in res["venues"])
     assert res["region"]["area"] == "Hauz Khas" and res["region"]["locality"] == "New Delhi"
     assert res["estimated"] is True

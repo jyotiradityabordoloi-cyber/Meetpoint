@@ -57,6 +57,8 @@ export default function App() {
   const [exactState, setExactState] = useState('idle') // idle | busy | denied | error
   const [settingsOpen, setSettingsOpen] = useState(null) // null = automatic
   const [searching, setSearching] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [moreNote, setMoreNote] = useState(null)
   const [error, setError] = useState(null)
   const [notice, setNotice] = useState(null)
   const [copied, setCopied] = useState(false)
@@ -70,6 +72,7 @@ export default function App() {
 
   const invalidate = useCallback(() => {
     setResult(null)
+    setMoreNote(null)
     setSelected(0)
   }, [])
 
@@ -254,6 +257,7 @@ export default function App() {
   const findMeetingPoint = useCallback(async () => {
     if (!groupId || members.length < 2) return
     setError(null)
+    setMoreNote(null)
     setSearching(true)
     track('search_started', { members: members.length })
     const t0 = performance.now()
@@ -276,6 +280,25 @@ export default function App() {
       setSearching(false)
     }
   }, [groupId, members.length, flushPatch])
+
+  // "Load more places": a wider search that skips places already shown.
+  const loadMorePlaces = useCallback(async () => {
+    if (!groupId || loadingMore) return
+    setLoadingMore(true)
+    setMoreNote(null)
+    try {
+      const rec = await api.morePlaces(groupId)
+      setResult(rec)
+      if (!rec.added) setMoreNote('No more places nearby. Try ticking other kinds of places in Edit.')
+      else setMoreNote(`Added ${rec.added} more place${rec.added === 1 ? '' : 's'}.`)
+      track('more_places', { added: rec.added })
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'STALE_RESULT') setMoreNote('The meetup changed. Press Search again first.')
+      else setMoreNote(toError(e).message)
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [groupId, loadingMore])
 
   const copyInvite = useCallback(async () => {
     setError(null)
@@ -541,6 +564,9 @@ export default function App() {
                   journeys={journeys}
                   onSelect={setSelected}
                   meetingName={settings.name}
+                  onLoadMore={loadMorePlaces}
+                  loadingMore={loadingMore}
+                  moreNote={moreNote}
                 />
                 </div>
               )}

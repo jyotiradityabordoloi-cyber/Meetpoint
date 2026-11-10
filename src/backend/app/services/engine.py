@@ -293,7 +293,14 @@ async def find_meeting_point(
     maps: MapClient | None,
     settings: Settings,
     now: datetime | None = None,
+    exclude_ids: frozenset[str] = frozenset(),
+    wider: bool = False,
 ) -> dict:
+    """Rank venues for the group.
+
+    exclude_ids / wider are used by "Load more places": skip places already shown
+    and look in a couple more fair areas, out to a larger radius.
+    """
     t0 = time.perf_counter()
     timings: dict[str, float] = {}
     now = now or datetime.now(timezone.utc)
@@ -391,7 +398,7 @@ async def find_meeting_point(
     for z in scored:
         if all(geo.haversine_km(z["point"], t["point"]) >= min_sep for t in top):
             top.append(z)
-        if len(top) >= s.top_zones:
+        if len(top) >= s.top_zones + (s.load_more_extra_zones if wider else 0):
             break
 
     zones_out = [
@@ -414,7 +421,7 @@ async def find_meeting_point(
     elif not inp.venue_types:
         ctx.warn("NO_VENUES", "Pick at least one kind of place to get venue suggestions.")
     else:
-        pool = await _search_venues(ctx, counting, top, inp.venue_types)
+        pool = await _search_venues(ctx, counting, top, inp.venue_types, exclude_ids, wider)
         if not pool:
             ctx.warn("NO_VENUES", "No venues were found near the fairest areas, so those areas are shown instead.")
     timings["places_ms"] = (time.perf_counter() - t2) * 1000
@@ -503,15 +510,26 @@ async def find_meeting_point(
         "meet_at": ctx.meet_at.isoformat() if ctx.meet_at else None,
         "warnings": ctx.warnings,
         "estimated": ctx.estimated,
+        "more_available": counting is not None and bool(inp.venue_types),
         "usage": counting.usage() if counting else None,
         "timings_ms": {k: round(v, 1) for k, v in timings.items()},
     }
 
 
-async def _search_venues(ctx: _Ctx, maps: _Counting, top: list[dict], types: list[str]) -> list[dict]:
+async def _search_venues(
+    ctx: _Ctx,
+    maps: _Counting,
+    top: list[dict],
+    types: list[str],
+    exclude_ids: frozenset[str] = frozenset(),
+    wider: bool = False,
+) -> list[dict]:
     """Search each top zone (in parallel), widening the radius until enough venues appear."""
-    steps = ctx.settings.venue_radius_steps_m
+    steps = list(ctx.settings.venue_radius_steps_m)
     need = ctx.settings.min_venues_per_zone
+    if wider:
+        steps = [r for r in steps if r < ctx.settings.load_more_radius_m] + [ctx.settings.load_more_radius_m]
+        need = max(need, 6)  # we want several *new* places per area
     # Keep widening until every kind asked for (e.g. cinemas, not just the
     # restaurants that are everywhere) has at least one option, or the max radius.
     wanted = {CANONICAL_KIND.get(t, t) for t in types}
@@ -529,7 +547,8 @@ async def _search_venues(ctx: _Ctx, maps: _Counting, top: list[dict], types: lis
                 failed = True
                 break
             for p in places:
-                found.setdefault(p.id, p)
+                if p.id not in exclude_ids:
+                    found.setdefault(p.id, p)
             have = {kind_of(p, wanted) for p in found.values()}
             if len(found) >= need and wanted <= have:
                 break

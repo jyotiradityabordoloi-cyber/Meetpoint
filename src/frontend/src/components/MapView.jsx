@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import L from 'leaflet'
 import { Circle, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import { formatMinutes } from '../format.js'
@@ -18,6 +18,60 @@ const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt
 
 // Venue pin: a pill with the kind-of-place glyph and the Google rating
 // (e.g. "4.4"). Without a rating (OpenStreetMap), just the glyph.
+// A small dot for places whose full pill would overlap a better-ranked one.
+function venueDotIcon() {
+  return L.divIcon({ className: '', html: '<div class="venue-dot"></div>', iconSize: [14, 14], iconAnchor: [7, 7] })
+}
+
+/**
+ * Google-Maps-style decluttering: draw pills in ranking order (selected first);
+ * any pill that would overlap one already drawn becomes a small dot. Recomputed
+ * on zoom/pan, so dots turn back into rating pills as you zoom in.
+ */
+function VenuePins({ venues, selected, onSelect }) {
+  const map = useMap()
+  const [compact, setCompact] = useState(() => new Set())
+  useEffect(() => {
+    const compute = () => {
+      const placed = []
+      const out = new Set()
+      const order = [selected, ...venues.map((_, i) => i).filter((i) => i !== selected)]
+      for (const i of order) {
+        const v = venues[i]
+        if (!v) continue
+        const p = map.latLngToContainerPoint([v.lat, v.lng])
+        const half = (v.rating != null ? 58 : 30) / 2 + 2
+        const box = { x1: p.x - half, x2: p.x + half, y1: p.y - 40, y2: p.y + 2 }
+        const hit = placed.some((b) => !(box.x2 < b.x1 || box.x1 > b.x2 || box.y2 < b.y1 || box.y1 > b.y2))
+        if (hit && i !== selected) out.add(i)
+        else placed.push(box)
+      }
+      setCompact((prev) => (prev.size === out.size && [...out].every((x) => prev.has(x)) ? prev : out))
+    }
+    compute()
+    map.on('zoomend moveend resize', compute)
+    return () => map.off('zoomend moveend resize', compute)
+  }, [map, venues, selected])
+
+  return venues.map((v, i) => {
+    const dot = compact.has(i)
+    return (
+      <Marker
+        key={v.id}
+        position={[v.lat, v.lng]}
+        icon={dot ? venueDotIcon() : venueIcon(v, i === selected)}
+        zIndexOffset={i === selected ? 1000 : dot ? -200 : 500 - i}
+        eventHandlers={{ click: () => onSelect(i) }}
+      >
+        <Tooltip direction="top" offset={dot ? [0, -8] : [0, -38]}>
+          {v.name}
+          {v.rating != null ? ` · ★ ${Number(v.rating).toFixed(1)}` : ''}
+        </Tooltip>
+      </Marker>
+    )
+  })
+}
+
 function venueIcon(v, active) {
   const glyph = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${kindGlyph(v.type)}</svg>`
   const rating = v.rating != null ? `<span>${Number(v.rating).toFixed(1)}</span>` : ''
@@ -317,20 +371,7 @@ export default function MapView({
 
         {journeyData && <Journeys journeys={journeyData.journeys} to={journeyData.to} names={names} styles={styles} />}
 
-        {venues.map((v, i) => (
-          <Marker
-            key={v.id}
-            position={[v.lat, v.lng]}
-            icon={venueIcon(v, i === selected)}
-            zIndexOffset={i === selected ? 1000 : 0}
-            eventHandlers={{ click: () => onSelect(i) }}
-          >
-            <Tooltip direction="top" offset={[0, -38]}>
-              {v.name}
-              {v.rating != null ? ` · ★ ${Number(v.rating).toFixed(1)}` : ''}
-            </Tooltip>
-          </Marker>
-        ))}
+        <VenuePins venues={venues} selected={selected} onSelect={onSelect} />
 
         {members.map((m) => (
           <Marker key={m.id} position={[m.lat, m.lng]} icon={personIcon(tags[m.id] || '?', styles[m.id])} zIndexOffset={1500}>

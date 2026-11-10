@@ -1994,3 +1994,37 @@ select:focus {
     display: none;
   }
 }
+
+/* ---- load more places --------------------------------------------------- */
+.load-more {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+.load-more .btn {
+  border-style: dashed;
+  border-color: var(--ink-40);
+}
+.load-more .btn:hover:not(:disabled) {
+  border-style: solid;
+  border-color: var(--orange);
+  color: var(--orange);
+}
+.load-more .hint {
+  text-align: center;
+}
+
+/* small dot for a place whose rating pill would overlap a better-ranked one */
+.venue-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--orange);
+  border: 2px solid var(--cream);
+  box-shadow: 0 1px 4px var(--ink-40);
+  cursor: pointer;
+}
+.venue-dot:hover {
+  transform: scale(1.25);
+}

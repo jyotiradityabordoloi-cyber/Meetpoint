@@ -134,7 +134,7 @@ def test_meeting_point_end_to_end_and_history(make_client):
     assert r.status_code == 200, r.text
     rec = r.json()
     assert rec["id"] and rec["group_id"] == g["id"] and rec["created_at"].endswith("Z")
-    assert 1 <= len(rec["venues"]) <= 5
+    assert 1 <= len(rec["venues"]) <= 10
     assert {t["name"] for t in rec["venues"][0]["travel"]} == {"A", "B", "C"}
 
     hist = c.get(f"/api/groups/{g['id']}/recommendations").json()
@@ -209,3 +209,41 @@ def test_cinema_is_an_allowed_venue_type(make_client):
     c = make_client()
     r = c.post("/api/groups", json={"name": "Movie night", "venue_types": ["movie_theater", "restaurant"]})
     assert r.status_code == 201 and r.json()["venue_types"] == ["movie_theater", "restaurant"]
+
+
+def test_load_more_places(make_client):
+    c = make_client(FakeMapClient())
+    g = _group(c)
+    r = c.post(f"/api/groups/{g['id']}/meeting-point/more")
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "NO_RESULT"
+
+    for name, lat, lng in [("A", 38.75, -9.17), ("B", 38.70, -9.10), ("C", 38.73, -9.20)]:
+        c.post(f"/api/groups/{g['id']}/members", json={"name": name, "lat": lat, "lng": lng})
+    first = c.post(f"/api/groups/{g['id']}/meeting-point").json()
+    assert first["more_available"] is True
+    before = [v["id"] for v in first["venues"]]
+
+    more = c.post(f"/api/groups/{g['id']}/meeting-point/more").json()
+    after = [v["id"] for v in more["venues"]]
+    assert more["added"] > 0 and after[: len(before)] == before  # appended, order kept
+    assert len(after) == len(set(after))  # no repeats
+    # saved: reopening the meetup shows the extra places
+    saved = c.get(f"/api/groups/{g['id']}/recommendations").json()[0]
+    assert [v["id"] for v in saved["venues"]] == after
+
+    # changing the meetup makes the old result stale
+    c.patch(f"/api/groups/{g['id']}", json={"travel_mode": "WALK"})
+    r = c.post(f"/api/groups/{g['id']}/meeting-point/more")
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "STALE_RESULT"
+
+
+def test_load_more_stops_at_the_cap(make_client):
+    c = make_client(FakeMapClient(), max_venues_total=12)
+    g = _group(c)
+    for name, lat, lng in [("A", 38.75, -9.17), ("B", 38.70, -9.10)]:
+        c.post(f"/api/groups/{g['id']}/members", json={"name": name, "lat": lat, "lng": lng})
+    c.post(f"/api/groups/{g['id']}/meeting-point")
+    more = c.post(f"/api/groups/{g['id']}/meeting-point/more").json()
+    assert len(more["venues"]) <= 12
+    again = c.post(f"/api/groups/{g['id']}/meeting-point/more").json()
+    assert again["more_available"] is False and len(again["venues"]) <= 12

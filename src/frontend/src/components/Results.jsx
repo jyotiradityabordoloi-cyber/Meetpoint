@@ -195,7 +195,18 @@ function OpeningHours({ hours }) {
   )
 }
 
-export default function Results({ result, tags, styles, selected, onSelect, meetingName, journeys }) {
+export default function Results({
+  result,
+  tags,
+  styles,
+  selected,
+  onSelect,
+  meetingName,
+  journeys,
+  onLoadMore,
+  loadingMore,
+  moreNote,
+}) {
   const units = result.region?.units || 'metric'
   const country = result.region?.country_code
   const heading = regionHeading(result.region)
@@ -390,6 +401,31 @@ export default function Results({ result, tags, styles, selected, onSelect, meet
           )
         })}
       </ol>
+
+      {venues.length > 0 && onLoadMore && (
+        <div className="load-more">
+          {result.more_available !== false ? (
+            <button type="button" className="btn ghost wide" onClick={onLoadMore} disabled={loadingMore}>
+              {loadingMore ? (
+                'Looking a bit wider…'
+              ) : (
+                <>
+                  <Icon name="plus" size={16} /> Load more places
+                </>
+              )}
+            </button>
+          ) : (
+            <p className="hint">
+              {venues.length >= 30 ? "That's 30 places, the most for one search. Change the kinds of places and search again for others." : "That's every good option nearby."}
+            </p>
+          )}
+          {moreNote && (
+            <p className="hint" role="status">
+              {moreNote}
+            </p>
+          )}
+        </div>
+      )}
     </section>
   )
 }

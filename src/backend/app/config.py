@@ -40,8 +40,13 @@ class Settings(BaseSettings):
     # Venues
     venue_radius_steps: str = "800,1500,3000"
     min_venues_per_zone: int = 3
-    venue_pool_size: int = 10
-    venues_to_return: int = 5
+    venue_pool_size: int = 12
+    venues_to_return: int = 10
+    # "Load more places": search this many extra fair areas, out to this radius,
+    # and stop offering more once a meetup shows this many places.
+    load_more_extra_zones: int = 2
+    load_more_radius_m: int = 5000
+    max_venues_total: int = 30
     final_weight_fairness: float = 0.7
     bayes_prior_rating: float = 4.0
     bayes_prior_weight: int = 50
