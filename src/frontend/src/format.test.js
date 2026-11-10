@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   centreOf,
+  distanceKm,
   formatDistance,
   formatMinutes,
   initials,
@@ -51,5 +52,13 @@ describe('format', () => {
       { id: 'c', name: 'Dev' },
     ])
     expect(tags).toEqual({ a: 'SA', b: 'SA2', c: 'DE' })
+  })
+
+  it('measures distance between cities', () => {
+    const delhi = { lat: 28.61, lng: 77.21 }
+    const blr = { lat: 12.97, lng: 77.59 }
+    expect(distanceKm(delhi, blr)).toBeGreaterThan(1700)
+    expect(distanceKm(delhi, blr)).toBeLessThan(1760)
+    expect(distanceKm(delhi, delhi)).toBe(0)
   })
 })

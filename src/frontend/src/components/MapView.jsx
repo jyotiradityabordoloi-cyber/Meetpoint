@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import L from 'leaflet'
 import { Circle, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import { formatMinutes } from '../format.js'
+import Icon from './Icon.jsx'
 
 // No hard-coded city: the map opens on the whole world, or on the viewer's
 // approximate area when the server can tell it from their IP address.
@@ -89,10 +90,37 @@ function KeepSized({ signature }) {
 function StartNear({ approx, hasPoints }) {
   const map = useMap()
   useEffect(() => {
-    if (approx && !hasPoints && map.getZoom() <= 3) map.setView([approx.lat, approx.lng], 11, { animate: true })
+    if (!approx || hasPoints) return
+    if (approx.source === 'exact') map.setView([approx.lat, approx.lng], 13, { animate: true })
+    else if (map.getZoom() <= 3) map.setView([approx.lat, approx.lng], 11, { animate: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [approx?.lat, approx?.lng])
+  }, [approx?.lat, approx?.lng, approx?.source])
   return null
+}
+
+/** Where the map is showing, and a one-tap fix when the IP guess is wrong. */
+function LocationChip({ approx, state, onUseExact }) {
+  const exact = approx?.source === 'exact'
+  let label
+  if (exact) label = approx.city ? `Near you · ${approx.city}` : 'Near your location'
+  else if (approx?.city) label = `${approx.city} (approx.)`
+  else if (approx) label = 'Your area (approx.)'
+  else label = 'Where are you?'
+  return (
+    <div className="location-chip" role="group" aria-label="Map location">
+      <span className="location-label">
+        <Icon name={exact ? 'target' : 'pin'} size={15} />
+        {label}
+      </span>
+      {!exact && (
+        <button type="button" onClick={onUseExact} disabled={state === 'busy'}>
+          {state === 'busy' ? 'Finding you…' : approx ? 'Not here? Use exact location' : 'Use my location'}
+        </button>
+      )}
+      {state === 'denied' && <span className="location-note">Location is blocked in your browser settings.</span>}
+      {state === 'error' && <span className="location-note">Could not get your location. Try again or search.</span>}
+    </div>
+  )
 }
 
 // Pan to a freshly chosen starting point so the person can check it.
@@ -201,7 +229,20 @@ function Journeys({ journeys, to, names }) {
   )
 }
 
-export default function MapView({ members, tags, result, selected, onSelect, draft, approx, pickMode, onMapClick, journeys }) {
+export default function MapView({
+  members,
+  tags,
+  result,
+  selected,
+  onSelect,
+  draft,
+  approx,
+  exactState,
+  onUseExactLocation,
+  pickMode,
+  onMapClick,
+  journeys,
+}) {
   const venues = result?.venues || []
   const zones = result?.zones || []
   const showZonesAsTargets = venues.length === 0
@@ -297,9 +338,12 @@ export default function MapView({ members, tags, result, selected, onSelect, dra
           Tap the map where this person starts
         </div>
       )}
+      {members.length === 0 && !result && (
+        <LocationChip approx={approx} state={exactState} onUseExact={onUseExactLocation} />
+      )}
       {!pickMode && members.length === 0 && !draft && (
         <div className="map-hint" role="note">
-          {approx?.city ? `Showing ${approx.city} (approximate). ` : ''}Add people and they'll appear here.
+          Add people and they'll appear here.
         </div>
       )}
       {journeys?.status === 'loading' && <div className="map-hint">Drawing everyone's route…</div>}

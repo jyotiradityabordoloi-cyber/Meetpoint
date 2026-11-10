@@ -54,8 +54,9 @@ export const api = {
   autocomplete: (q, { bias, session, lang } = {}, signal) => {
     const p = new URLSearchParams({ q })
     if (bias) {
-      p.set('lat', bias.lat.toFixed(4))
-      p.set('lng', bias.lng.toFixed(4))
+      // ~1 km is plenty for ranking and keeps exact positions private
+      p.set('lat', bias.lat.toFixed(2))
+      p.set('lng', bias.lng.toFixed(2))
     }
     if (session) p.set('session', session)
     if (lang) p.set('lang', lang)

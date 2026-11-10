@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, ApiError, track } from './api.js'
-import { centreOf, memberTags } from './format.js'
+import { centreOf, distanceKm, loadExactLocation, memberTags, saveExactLocation } from './format.js'
 import GroupSettings from './components/GroupSettings.jsx'
 import People from './components/People.jsx'
 import AddPerson from './components/AddPerson.jsx'
@@ -51,7 +51,9 @@ export default function App() {
   const [selected, setSelected] = useState(0)
   const [draft, setDraft] = useState(null) // starting point being added: {lat, lng, label, source}
   const [pickMode, setPickMode] = useState(false)
-  const [approx, setApprox] = useState(null) // viewer's approximate location from their IP
+  const [approx, setApprox] = useState(null) // where the map starts: IP guess, or exact if the visitor shared it
+  const [ipGuess, setIpGuess] = useState(null) // city-level guess from the IP address
+  const [exactState, setExactState] = useState('idle') // idle | busy | denied | error
   const [settingsOpen, setSettingsOpen] = useState(null) // null = automatic
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState(null)
@@ -85,10 +87,21 @@ export default function App() {
         setNotice((n) => (n === WAKING ? null : n))
       })
     // City-level location from the IP address: ranks search suggestions and
-    // centres the first map view. Never stored.
+    // centres the first map view. Never stored. If the visitor already shared
+    // their exact location in this tab, that wins.
+    const remembered = loadExactLocation()
+    if (remembered) setApprox({ ...remembered, city: null, source: 'exact' })
     api
       .locate()
-      .then((r) => r?.located && setApprox(r))
+      .then((r) => {
+        if (!r?.located) return
+        setIpGuess(r)
+        setApprox((cur) => {
+          if (cur?.source !== 'exact') return r
+          // keep the exact point, but borrow the IP city name if it's nearby
+          return distanceKm(cur, r) < 40 ? { ...cur, city: r.city } : cur
+        })
+      })
       .catch(() => {})
     const g = readGroupParam()
     if (!g) {
@@ -343,11 +356,39 @@ export default function App() {
     }
   }, [groupId, settings.name])
 
+  // "Use my exact location": fixes a wrong IP guess (common on mobile data,
+  // VPNs and office networks). Asks the browser's permission only on tap.
+  const useExactLocation = useCallback(() => {
+    if (!('geolocation' in navigator)) {
+      setExactState('error')
+      return
+    }
+    setExactState('busy')
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+        saveExactLocation(loc)
+        const city = ipGuess && distanceKm(loc, ipGuess) < 40 ? ipGuess.city : null
+        setApprox({ ...loc, city, source: 'exact' })
+        setExactState('idle')
+        track('exact_location_used')
+      },
+      (err) => setExactState(err.code === err.PERMISSION_DENIED ? 'denied' : 'error'),
+      { enableHighAccuracy: false, timeout: 12000, maximumAge: 5 * 60 * 1000 },
+    )
+  }, [ipGuess])
+
   const mapsConfigured = health?.maps_configured ?? true
   const searchAvailable = health ? Boolean(health.search) : true
   const memberCentre = useMemo(() => centreOf(members), [members])
   const bias = memberCentre || (approx ? { lat: approx.lat, lng: approx.lng } : null)
-  const biasLabel = members.length ? 'your group' : approx ? approx.city || 'your area' : null
+  const biasLabel = members.length
+    ? 'your group'
+    : approx
+      ? approx.source === 'exact'
+        ? 'you'
+        : approx.city || 'your area'
+      : null
   const settingsCollapsed = settingsOpen === null ? members.length > 0 : !settingsOpen
 
   // On phones the map is above the form: bring it into view when picking.
@@ -409,6 +450,8 @@ export default function App() {
             onSelect={setSelected}
             draft={draft}
             approx={approx}
+            exactState={exactState}
+            onUseExactLocation={useExactLocation}
             pickMode={pickMode}
             onMapClick={onMapClick}
             journeys={journeys}

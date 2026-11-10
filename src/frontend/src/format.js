@@ -130,3 +130,32 @@ export function centreOf(points) {
   const lng = points.reduce((a, p) => a + p.lng, 0) / points.length
   return { lat, lng }
 }
+
+// Great-circle distance in km (used to decide if the IP city still applies).
+export function distanceKm(a, b) {
+  const r = Math.PI / 180
+  const dLat = (b.lat - a.lat) * r
+  const dLng = (b.lng - a.lng) * r
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLng / 2) ** 2
+  return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)))
+}
+
+// The exact location a visitor chose to share is kept only in this browser
+// tab (sessionStorage), never sent to the server except as a rounded
+// search-ranking hint.
+const EXACT_KEY = 'meetpoint.exactLocation'
+export function loadExactLocation() {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(EXACT_KEY) || 'null')
+    return v && Number.isFinite(v.lat) && Number.isFinite(v.lng) ? v : null
+  } catch {
+    return null
+  }
+}
+export function saveExactLocation(loc) {
+  try {
+    sessionStorage.setItem(EXACT_KEY, JSON.stringify({ lat: loc.lat, lng: loc.lng }))
+  } catch {
+    /* storage blocked: fine, it just won't be remembered */
+  }
+}

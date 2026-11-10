@@ -1262,6 +1262,65 @@ select:focus {
   }
 }
 
+/* location chip: where the map starts, and a fix for a wrong IP guess */
+.location-chip {
+  position: absolute;
+  top: 12px;
+  left: 56px;
+  z-index: 800;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  max-width: calc(100% - 68px);
+  padding: 6px 6px 6px 12px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--cream);
+  box-shadow: 0 8px 24px var(--ink-40);
+  font-size: 13px;
+}
+.location-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+.location-label .icon {
+  color: var(--orange);
+}
+.location-chip button {
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: var(--orange);
+  color: var(--cream);
+  font-weight: 600;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .location-chip button:hover:not(:disabled) {
+    background: var(--cream);
+    color: var(--ink);
+  }
+}
+.location-chip button:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+.location-note {
+  width: 100%;
+  padding: 0 6px 2px 0;
+  font-size: 12px;
+  color: var(--cream-80);
+}
+@media (max-width: 480px) {
+  .location-chip {
+    border-radius: 16px;
+  }
+}
+
 /* ---- pre-JS content in index.html (replaced by React) ------------------ */
 .prerender {
   max-width: 680px;
@@ -1374,5 +1433,9 @@ select:focus {
   }
   .glimpse {
     height: 150px;
+  }
+  .mode-text {
+    font-size: 10.5px;
+    letter-spacing: -0.01em;
   }
 }
