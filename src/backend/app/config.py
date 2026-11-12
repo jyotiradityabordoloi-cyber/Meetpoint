@@ -64,6 +64,11 @@ class Settings(BaseSettings):
     # key is set; otherwise Photon (OpenStreetMap) if PHOTON_URL is set,
     # e.g. https://photon.komoot.io (fair use) or a self-hosted instance.
     photon_url: str = ""
+    # Backups while Photon is down or slow (both free, OpenStreetMap data):
+    # Nominatim for place search and area names, Overpass for venues near a
+    # point. Set either to "" to turn it off.
+    nominatim_url: str = "https://nominatim.openstreetmap.org"
+    overpass_url: str = "https://overpass-api.de/api/interpreter"
 
     # Journey paths drawn on the map. Google Routes with a key; otherwise OSRM
     # if OSRM_URL is set (e.g. https://routing.openstreetmap.de, fair use).

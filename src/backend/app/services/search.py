@@ -2,7 +2,8 @@
 
 Google is used when a Maps key is configured. Without one, Photon
 (https://photon.komoot.io or a self-hosted instance) gives real worldwide
-results for free. Both rank results near an optional bias point, such as the
+results for free, and Nominatim answers while Photon is down (`osm_fallback`).
+Both rank results near an optional bias point, such as the
 group's other members or the viewer's approximate IP location.
 """
 
@@ -16,6 +17,7 @@ import httpx
 
 from .geo import LatLng
 from .google import GoogleError, _kind_for_status
+from .osm_fallback import Breaker, NominatimClient, breaker, is_outage
 
 log = logging.getLogger("meetpoint.search")
 
@@ -133,11 +135,31 @@ def _photon_secondary(p: dict) -> str:
 class PhotonSearch:
     name = "photon"
 
-    def __init__(self, base_url: str, http: httpx.AsyncClient):
+    def __init__(self, base_url: str, http: httpx.AsyncClient, nominatim: NominatimClient | None = None, brk: Breaker = breaker):
         self._url = base_url.rstrip("/") + "/api/"
         self._http = http
+        self._nominatim = nominatim
+        self._breaker = brk
 
     async def autocomplete(self, query: str, bias: LatLng | None, session: str | None, lang: str | None) -> list[Suggestion]:
+        if self._nominatim is not None and self._breaker.is_open("photon"):
+            return await self._backup(query, bias, lang)
+        try:
+            return await self._photon(query, bias, lang)
+        except GoogleError as e:
+            if self._nominatim is None or not is_outage(e):
+                raise
+            self._breaker.trip("photon")
+            return await self._backup(query, bias, lang)
+
+    async def _backup(self, query: str, bias: LatLng | None, lang: str | None) -> list[Suggestion]:
+        # Nominatim is not made for search-as-you-type: only fuller queries go to it
+        if len(query.strip()) < 3:
+            return []
+        found = await self._nominatim.search(query, bias=bias, limit=5, lang=lang[:2] if lang else None)
+        return [Suggestion(id=f["id"], main=f["name"], secondary=f["secondary"], lat=f["lat"], lng=f["lng"]) for f in found]
+
+    async def _photon(self, query: str, bias: LatLng | None, lang: str | None) -> list[Suggestion]:
         params: dict = {"q": query, "limit": 6}
         if bias:
             params.update(lat=f"{bias.lat:.4f}", lon=f"{bias.lng:.4f}", location_bias_scale="0.3")
@@ -148,7 +170,9 @@ class PhotonSearch:
         except httpx.HTTPError as e:
             raise GoogleError("network", type(e).__name__) from e
         if r.status_code >= 400:
-            raise GoogleError("unavailable", r.text[:200], r.status_code)
+            # a 4xx other than 429 is a query Photon cannot answer, not an outage
+            kind = "quota" if r.status_code == 429 else ("invalid_argument" if r.status_code < 500 else "unavailable")
+            raise GoogleError(kind, r.text[:200], r.status_code)
         out: list[Suggestion] = []
         seen: set[str] = set()
         for f in (r.json() or {}).get("features", []) or []:

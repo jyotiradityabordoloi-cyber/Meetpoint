@@ -11,6 +11,7 @@ from .config import Settings
 from .errors import ApiError
 from .services.google import GoogleMapClient, MapClient
 from .services.osm import OsmMapClient
+from .services.osm_fallback import NominatimClient, OverpassClient
 from .services.routes import GoogleRoutes, JourneyRouter, OsrmRoutes
 from .services.search import GooglePlacesSearch, PhotonSearch, SearchProvider
 
@@ -25,8 +26,16 @@ async def get_maps(request: Request) -> AsyncIterator[MapClient | None]:
     if not settings.maps_configured:
         if settings.photon_url:
             # No Google key: real venue names and area names from OpenStreetMap.
-            async with httpx.AsyncClient(timeout=httpx.Timeout(6.0, connect=3.0)) as http:
-                yield OsmMapClient(settings.photon_url, http)
+            async with (
+                httpx.AsyncClient(timeout=httpx.Timeout(6.0, connect=3.0)) as http,
+                httpx.AsyncClient(timeout=httpx.Timeout(25.0, connect=5.0)) as slow,
+            ):
+                yield OsmMapClient(
+                    settings.photon_url,
+                    http,
+                    nominatim=NominatimClient(settings.nominatim_url, http) if settings.nominatim_url else None,
+                    overpass=OverpassClient(settings.overpass_url, slow) if settings.overpass_url else None,
+                )
             return
         yield None
         return
@@ -46,7 +55,8 @@ async def get_search(request: Request) -> AsyncIterator[SearchProvider | None]:
             yield GooglePlacesSearch(settings.google_maps_api_key, http)
     elif settings.photon_url:
         async with httpx.AsyncClient(timeout=httpx.Timeout(5.0, connect=3.0)) as http:
-            yield PhotonSearch(settings.photon_url, http)
+            nominatim = NominatimClient(settings.nominatim_url, http) if settings.nominatim_url else None
+            yield PhotonSearch(settings.photon_url, http, nominatim=nominatim)
     else:
         yield None
 

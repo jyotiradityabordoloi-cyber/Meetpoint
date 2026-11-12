@@ -169,7 +169,7 @@ Travel modes: `DRIVE`, `TWO_WHEELER`, `TRANSIT`, `WALK`, `BICYCLE`. `meet_at` is
 
 Typing in the starting-point box shows place suggestions after two letters. Results are ranked near the people already in the group or, for the first person, near the viewer's approximate location.
 
-- **Search provider:** Google Places Autocomplete (New) when `GOOGLE_MAPS_API_KEY` is set. Keystrokes and the final pick share a session token, so they're billed as one session. Without a key, set `PHOTON_URL` to use [Photon](https://photon.komoot.io), free OpenStreetMap search. The public instance is fair-use only, so self-host it for real traffic.
+- **Search provider:** Google Places Autocomplete (New) when `GOOGLE_MAPS_API_KEY` is set. Keystrokes and the final pick share a session token, so they're billed as one session. Without a key, set `PHOTON_URL` to use [Photon](https://photon.komoot.io), free OpenStreetMap search. The public instance is fair-use only, so self-host it for real traffic. When Photon is down or slow, the API switches by itself to [Nominatim](https://nominatim.org) (place search, area names and venues) and then [Overpass](https://overpass-api.de) (venues), and skips Photon for five minutes before trying it again (`NOMINATIM_URL`, `OVERPASS_URL`; set either to empty to turn it off).
 - **Approximate location** (`GET /api/locate`): city-level only, rounded to about 1 km, and never stored or logged. It also opens the map on the viewer's area instead of the whole world. Sources, in order:
   1. Location headers from the hosting edge: Cloudflare (turn on *visitor location headers*), Vercel or Google Cloud.
   2. A local MaxMind GeoLite2-City database (`GEOIP_DB_PATH`), so no third party sees the IP address.
