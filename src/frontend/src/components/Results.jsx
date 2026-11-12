@@ -195,6 +195,16 @@ function OpeningHours({ hours }) {
   )
 }
 
+// On a phone the map sits above the list, out of sight while reading the
+// results: this scrolls back up to it (the button is hidden on wider screens).
+function showMap() {
+  const map = document.querySelector('.map-wrap')
+  if (!map) return
+  const bar = document.querySelector('.topbar')?.getBoundingClientRect().height || 0
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  window.scrollTo({ top: map.getBoundingClientRect().top + window.scrollY - bar, behavior: reduce ? 'auto' : 'smooth' })
+}
+
 export default function Results({
   result,
   tags,
@@ -291,6 +301,9 @@ export default function Results({
                       <a className="btn primary small" href={googleMapsSearchUrl(z.lat, z.lng)} target="_blank" rel="noreferrer">
                         <Icon name="directions" size={16} /> Open in Google Maps
                       </a>
+                    <button type="button" className="btn ghost small map-jump" onClick={showMap}>
+                      <Icon name="map" size={15} /> See on map
+                    </button>
                     </div>
                   </div>
                 )}
@@ -390,6 +403,9 @@ export default function Results({
                     )}
                     <button className="btn ghost small" onClick={() => share(v)}>
                       <Icon name="share" size={15} /> Share
+                    </button>
+                    <button type="button" className="btn ghost small map-jump" onClick={showMap}>
+                      <Icon name="map" size={15} /> See on map
                     </button>
                   </div>
                   {v.rating == null && (

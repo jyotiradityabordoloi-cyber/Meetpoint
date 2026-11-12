@@ -2028,3 +2028,36 @@ select:focus {
 .venue-dot:hover {
   transform: scale(1.25);
 }
+
+/* ---- phones: thumb-sized controls and a way back to the map ------------- */
+.map-jump {
+  display: none;
+}
+@media (max-width: 820px) {
+  .map-jump {
+    display: inline-flex;
+  }
+}
+@media (max-width: 560px) {
+  .btn,
+  .btn.small,
+  .topbar .btn {
+    min-height: 44px;
+  }
+  .chip {
+    min-height: 40px;
+    padding: 8px 14px;
+  }
+  .location-chip button {
+    min-height: 40px;
+  }
+  .icon-btn {
+    width: 40px;
+    height: 40px;
+  }
+  .leaflet-touch .leaflet-bar a {
+    width: 40px;
+    height: 40px;
+    line-height: 40px;
+  }
+}
