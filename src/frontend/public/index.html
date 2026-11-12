@@ -107,6 +107,15 @@
   .faq-tools b { font-weight: 500; }
   .places-shot { display: block; width: 100%; height: auto; max-width: none; border-radius: var(--r-md); box-shadow: 0 1px 2px rgb(17 17 17 / .1), 0 22px 48px -22px rgb(17 17 17 / .4); }
   @media (min-width: 640px) { #places .at-corner { width: var(--w); } }
+  /* a short desktop window (a laptop, an unmaximised window): a section keeps at least its screens and
+     grows past them rather than lay its last rows over the next section (system.css does the same
+     from 640 to 1279; this carries it to wide screens) */
+  @media (min-width: 1280px) {
+    main > section.section, footer.closing { height: auto; min-height: calc(var(--h, 1) * 100vh); min-height: calc(var(--h, 1) * 100svh); display: flex; flex-direction: column; }
+    main > section.section > .wrap, footer.closing > .wrap { flex: 1 0 auto; height: auto; min-height: 0; }
+    #how .app { min-height: 460px; }
+    main > .hero { min-height: 680px; }
+  }
   #steps .panel { --p-h: 336px; }
   #steps .panel .frame__img { object-fit: cover; object-position: 50% 0; }
   @media (max-width: 639px) { #steps .panel { --p-h: 220px; } }
