@@ -26,3 +26,6 @@ Thumbs.db
 
 # Machine-specific dev launcher
 .claude/
+
+# taste-skill checker state (screenshots, Chrome profiles)
+.taste-skill/

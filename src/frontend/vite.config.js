@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -9,12 +10,14 @@ import react from '@vitejs/plugin-react'
  *  - writes sitemap.xml and points robots.txt at it
  * Without it, robots.txt is still written (no Sitemap line) and nothing else changes.
  *
- * Only the home page is listed: meetup links (?g=...) are private and noindex.
+ * The landing page (public/index.html, static) and the app (/plan) are listed;
+ * meetup links (/plan?g=...) are private and noindex.
  */
 function seoFiles(siteUrl) {
   const site = (siteUrl || '').replace(/\/+$/, '')
   return {
     name: 'meetpoint-seo-files',
+    // Only the app page (plan/index.html) goes through Vite; the landing page is static.
     transformIndexHtml(html) {
       if (!site) return html
       const abs = (path) => `${site}${path}`
@@ -23,13 +26,13 @@ function seoFiles(siteUrl) {
         .replace(/(name="twitter:image" content=")\/og-image\.png/, `$1${abs('/og-image.png')}`)
         .replace(
           '</head>',
-          `    <link rel="canonical" href="${abs('/')}" />\n    <meta property="og:url" content="${abs('/')}" />\n  </head>`,
+          `    <link rel="canonical" href="${abs('/plan')}" />\n    <meta property="og:url" content="${abs('/plan')}" />\n  </head>`,
         )
     },
     generateBundle() {
       const robots = [
         '# MeetPoint',
-        '# The home page is public. Meetup links (/?g=...) carry a noindex header and tag.',
+        '# The landing page and /plan are public. Meetup links (/plan?g=...) carry a noindex header and tag.',
         'User-agent: *',
         'Allow: /',
         'Disallow: /api/',
@@ -44,6 +47,7 @@ function seoFiles(siteUrl) {
           '<?xml version="1.0" encoding="UTF-8"?>\n' +
           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
           `  <url><loc>${site}/</loc><lastmod>${today}</lastmod></url>\n` +
+          `  <url><loc>${site}/plan</loc><lastmod>${today}</lastmod></url>\n` +
           '</urlset>\n'
         this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: sitemap })
       }
@@ -56,6 +60,12 @@ export default defineConfig(({ mode }) => {
   const target = env.VITE_API_URL || 'http://127.0.0.1:8000'
   return {
     plugins: [react(), seoFiles(env.VITE_SITE_URL)],
+    // The landing page is public/index.html (static, copied as-is with its kit in public/assets);
+    // the app is plan/index.html. Vite's own bundles go to /static so they never mix with the kit.
+    build: {
+      assetsDir: 'static',
+      rollupOptions: { input: { plan: resolve(__dirname, 'plan/index.html') } },
+    },
     server: { port: 5173, proxy: { '/api': { target, changeOrigin: true } } },
     preview: { port: 4173, proxy: { '/api': { target, changeOrigin: true } } },
   }

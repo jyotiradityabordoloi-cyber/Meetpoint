@@ -110,7 +110,7 @@ uvicorn app.main:create_app --factory --reload --port 8000
 ```bash
 cd src/frontend
 npm install
-npm run dev                 # http://localhost:5173 (proxies /api to :8000)
+npm run dev                 # http://localhost:5173/plan/ (proxies /api to :8000)
 ```
 
 **No Google key yet?** The app still runs. With `PHOTON_URL` set it suggests real cafés, restaurants, bars, pubs, parks and malls from OpenStreetMap. Each suggestion has a name and address but no ratings or photos, and travel times are estimated from distance. To try the whole app locally, run the demo API (development only). It uses OpenStreetMap for place search, venues, area names and journey paths (Photon and OSRM), and finds your city from your IP address:
@@ -197,11 +197,11 @@ The engine tests run the full pipeline in 7 cities on 5 continents against a fak
 
 ## Search and link previews
 
-MeetPoint is a tool, not a content site. The home page is meant to be found and shared. Meetup links contain people's starting points, so they must never show up in search results.
+MeetPoint is a tool, not a content site. The landing page (`/`) and the planner (`/plan`) are meant to be found and shared. Meetup links contain people's starting points, so they must never show up in search results.
 
 | What | How |
 |---|---|
-| Real content without JavaScript | `index.html` has a heading, "How it works" and a `<noscript>` note. React replaces them once it loads. |
+| Real content without JavaScript | The landing page (`public/index.html`) is static HTML. The planner (`plan/index.html`) has a heading, "How it works" and a `<noscript>` note. React replaces them once it loads. |
 | Titles and description | A descriptive home-page title and meta description. A meetup tab shows `Friday dinner · MeetPoint`. |
 | Link previews (WhatsApp, Slack, X, LinkedIn) | Open Graph and Twitter tags, plus a 1200×630 share image at `public/og-image.png` |
 | Structured data | JSON-LD `WebApplication` |
