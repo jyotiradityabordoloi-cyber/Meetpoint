@@ -116,6 +116,8 @@
     #how .app { min-height: 460px; }
     main > .hero { min-height: 680px; }
   }
+  /* stacked (tablet and phone): the questions start clear of the tool list above them */
+  @media (max-width: 1023px) { #faq .faq { margin-top: var(--s-8); } }
   #steps .panel { --p-h: 336px; }
   #steps .panel .frame__img { object-fit: cover; object-position: 50% 0; }
   @media (max-width: 639px) { #steps .panel { --p-h: 220px; } }
@@ -312,7 +314,10 @@
         </div>
         <div class="frame frame--split span-6 start-7">
           <div class="stage stage--fade-br"><div class="at-corner to-edge" style="--ax:56px;--ay:56px;--w:860px">
-            <img class="places-shot" src="img/app-desktop.jpg" alt="MeetPoint on a laptop: the list of places beside the map of everyone's routes" loading="lazy" width="1600" height="1000" data-source="client" data-subject="the MeetPoint app with a meetup open">
+            <picture>
+              <source media="(max-width: 639px)" srcset="img/app-phone-card.jpg" width="780" height="1288">
+              <img class="places-shot" src="img/app-desktop.jpg" alt="MeetPoint with a meetup open: the place's trip times for each person beside the map of everyone's routes" loading="lazy" width="1600" height="1000" data-source="client" data-subject="the MeetPoint app with a meetup open">
+            </picture>
           </div></div>
         </div>
       </div>
