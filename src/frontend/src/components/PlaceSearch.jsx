@@ -15,7 +15,7 @@ function newSession() {
  * Suggestions are ranked near `bias` ({lat, lng}): the group's other members,
  * or the viewer's approximate location. Calls onPick({lat, lng, label}).
  */
-export default function PlaceSearch({ bias, biasLabel, onPick, disabled, autoFocus }) {
+export default function PlaceSearch({ bias, biasLabel, onPick, disabled, autoFocus, placeholder = 'Search a place, street or area…' }) {
   const [query, setQuery] = useState('')
   const [items, setItems] = useState([])
   const [open, setOpen] = useState(false)
@@ -133,7 +133,7 @@ export default function PlaceSearch({ bias, biasLabel, onPick, disabled, autoFoc
           autoFocus={autoFocus}
           disabled={disabled}
           value={query}
-          placeholder="Search a place, street or area…"
+          placeholder={placeholder}
           onChange={(e) => {
             setQuery(e.target.value)
             setOpen(true)

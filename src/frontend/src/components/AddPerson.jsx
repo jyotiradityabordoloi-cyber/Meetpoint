@@ -109,21 +109,32 @@ export default function AddPerson({
         </label>
       </div>
 
-      {draft ? (
+      {/* The chosen start sits above the search box, which always stays: typing a
+          place replaces "My current location" or a pin, so typing is never hidden. */}
+      {draft && (
         <div className="chosen" role="status">
           <Icon name={draft.source === 'gps' ? 'target' : 'pin'} size={18} />
-          <span className="chosen-label">{draft.label}</span>
-          <button type="button" className="link small" onClick={() => onDraft(null)}>
-            Change
+          <span className="chosen-label">
+            <span className="sr-only">Starting point: </span>
+            {draft.label}
+          </span>
+          <button type="button" className="chosen-clear" onClick={() => onDraft(null)} aria-label="Clear starting point">
+            <Icon name="close" size={16} />
           </button>
         </div>
+      )}
+      {searchAvailable ? (
+        <PlaceSearch
+          bias={bias}
+          biasLabel={biasLabel}
+          placeholder={draft ? 'Or type a different place…' : undefined}
+          onPick={(loc) => onDraft({ ...loc, source: 'search' })}
+        />
       ) : (
+        <p className="hint">Place search isn't set up on this server. Use your location or pick on the map.</p>
+      )}
+      {!draft && (
         <>
-          {searchAvailable ? (
-            <PlaceSearch bias={bias} biasLabel={biasLabel} onPick={(loc) => onDraft({ ...loc, source: 'search' })} />
-          ) : (
-            <p className="hint">Place search isn't set up on this server. Use your location or pick on the map.</p>
-          )}
           <div className="alt-actions">
             <button type="button" className="btn ghost small" onClick={locate} disabled={busy}>
               <Icon name="target" size={16} /> Use my location

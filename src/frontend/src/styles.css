@@ -708,8 +708,27 @@ select:focus {
 .chosen .icon {
   color: var(--orange);
 }
-.chosen .link.small {
-  color: var(--orange);
+.chosen-clear {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  margin: -6px -6px -6px 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cream);
+  cursor: pointer;
+}
+.chosen-clear:hover {
+  background: var(--cream-20);
+}
+@media (max-width: 560px) {
+  .chosen-clear {
+    width: 40px;
+    height: 40px;
+  }
 }
 .chosen-label {
   flex: 1;
