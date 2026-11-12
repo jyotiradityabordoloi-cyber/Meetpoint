@@ -9,6 +9,10 @@ Uses Photon (https://photon.komoot.io or a self-hosted instance) for:
 OpenStreetMap has no ratings, photos or live opening status, and there is no
 free routing matrix here, so travel times are estimated from distance
 (`estimates_only`). Adding a Google key switches everything to Google.
+
+When Photon is down or slow, venues, area names and address lookups come from
+Nominatim, and venues from Overpass if Nominatim fails too (`osm_fallback`), so
+a search still finds places.
 """
 
 from __future__ import annotations
@@ -22,6 +26,7 @@ import httpx
 from . import geo
 from .geo import LatLng
 from .google import GeocodeResult, GoogleError, Matrix, Place
+from .osm_fallback import Breaker, NominatimClient, OverpassClient, breaker, is_outage, overpass_place
 
 log = logging.getLogger("meetpoint.osm")
 
@@ -51,9 +56,14 @@ OSM_VALUE_TO_TYPE = {
     "museum": "museum",
     "cinema": "movie_theater",
 }
+# "amenity:cafe" -> "cafe": the app's type for each OpenStreetMap tag
+TAG_TO_TYPE = {t: OSM_VALUE_TO_TYPE[t.split(":", 1)[1]] for tags in TYPE_TO_OSM.values() for t in tags}
 # Fetch once at this radius (nearest first) and reuse it when the engine widens
 # its search step by step (800 m -> 1.5 km -> 3 km).
 FETCH_RADIUS_M = 3000.0
+# The backups answer per box and at most 40 a kind (Nominatim): a smaller box
+# keeps those 40 close to the spot; a wider search asks again.
+BACKUP_FETCH_RADIUS_M = 1500.0
 UA = {"User-Agent": "MeetPoint (open-source; https://github.com/jyotiradityabordoloi-cyber/Meetpoint)"}
 
 
@@ -70,22 +80,51 @@ class OsmMapClient:
 
     estimates_only = True
 
-    def __init__(self, photon_url: str, http: httpx.AsyncClient, concurrency: int = 1, retry_delay_s: float = 1.2):
+    def __init__(
+        self,
+        photon_url: str,
+        http: httpx.AsyncClient,
+        concurrency: int = 1,
+        retry_delay_s: float = 1.2,
+        nominatim: NominatimClient | None = None,
+        overpass: OverpassClient | None = None,
+        brk: Breaker = breaker,
+    ):
         self._base = photon_url.rstrip("/")
         self._http = http
+        self._nominatim = nominatim
+        self._overpass = overpass
+        self._breaker = brk
         # One request at a time: the shared public server rejects bursts.
         self._sem = asyncio.Semaphore(concurrency)
         self._retry_delay_s = retry_delay_s
         self._cache: dict[tuple, asyncio.Task] = {}  # per request: (lat, lng, tags, radius) -> fetch
         self._centres: list[tuple[float, float]] = []  # areas in the order the engine asks (fairest first)
 
+    @property
+    def _has_backup(self) -> bool:
+        return self._nominatim is not None or self._overpass is not None
+
     async def _get(self, path: str, params: list[tuple[str, str]]) -> dict:
+        try:
+            return await self._photon_get(path, params)
+        except GoogleError as e:
+            if self._has_backup and is_outage(e):
+                self._breaker.trip("photon")
+            raise
+
+    async def _photon_get(self, path: str, params: list[tuple[str, str]]) -> dict:
+        if self._has_backup and self._breaker.is_open("photon"):
+            raise GoogleError("unavailable", "photon skipped: failed recently")
         async with self._sem:
+            if self._has_backup and self._breaker.is_open("photon"):
+                raise GoogleError("unavailable", "photon skipped: failed recently")
             for attempt in (1, 2):
                 try:
                     r = await self._http.get(f"{self._base}{path}", params=params, headers=UA)
                 except httpx.HTTPError as e:
-                    if attempt == 2:
+                    # with a backup, a timeout is not worth a second wait
+                    if attempt == 2 or self._has_backup:
                         raise GoogleError("network", type(e).__name__) from e
                     await asyncio.sleep(self._retry_delay_s)
                     continue
@@ -117,6 +156,8 @@ class OsmMapClient:
         if ckey not in self._centres:
             self._centres.append(ckey)
         fetch_r = max(radius_m, FETCH_RADIUS_M)
+        if self._has_backup and self._breaker.is_open("photon"):
+            return await self._backup_nearby(center, radius_m, tags)
         if len(tags) > 1 and self._centres.index(ckey) == 0:
             groups = [(t,) for t in tags]
             limit = 12
@@ -125,6 +166,13 @@ class OsmMapClient:
             limit = 30
         batches = await asyncio.gather(*[self._cached_nearby(center, fetch_r, g, limit) for g in groups], return_exceptions=True)
         errors = [b for b in batches if isinstance(b, BaseException)]
+        if errors and self._has_backup and all(isinstance(e, GoogleError) and is_outage(e) for e in errors):
+            # Photon failed for some or all kinds: a backup answers for every kind
+            try:
+                return await self._backup_nearby(center, radius_m, tags)
+            except GoogleError:
+                if len(errors) == len(batches):
+                    raise errors[0] from None
         if errors and len(errors) == len(batches):
             raise errors[0]
         merged: dict[str, tuple[float, Place]] = {}
@@ -138,6 +186,30 @@ class OsmMapClient:
                 if key not in merged or dist < merged[key][0]:
                     merged[key] = (dist, place)
         return [pl for _, pl in sorted(merged.values(), key=lambda x: x[0])]
+
+    async def _backup_nearby(self, center: LatLng, radius_m: float, tags: list[str]) -> list[Place]:
+        """Places near `center` from Nominatim, else Overpass (Photon is down)."""
+        fetch_r = max(radius_m, BACKUP_FETCH_RADIUS_M)
+        key = ("backup", round(center.lat, 5), round(center.lng, 5), tuple(sorted(tags)), fetch_r)
+        task = self._cache.get(key)
+        if task is None or (task.done() and task.exception() is not None):
+            task = asyncio.ensure_future(self._backup_fetch(center, fetch_r, tags))
+            self._cache[key] = task
+        found = await task
+        return [place for dist, place in found if dist <= radius_m * 1.05]
+
+    async def _backup_fetch(self, center: LatLng, fetch_r: float, tags: list[str]) -> list[tuple[float, Place]]:
+        first: GoogleError | None = None
+        if self._nominatim is not None:
+            try:
+                return await self._nominatim.nearby(center, fetch_r, tags, TAG_TO_TYPE)
+            except GoogleError as e:
+                log.warning("nominatim places failed (%s); trying overpass", e.kind)
+                first = e
+        if self._overpass is not None:
+            found = await self._overpass.nearby(center, fetch_r, tags)
+            return [(dist, overpass_place(el, TAG_TO_TYPE)) for dist, el in found]
+        raise first or GoogleError("unavailable", "no backup for places")
 
     def _cached_nearby(self, center: LatLng, radius_m: float, tags: tuple[str, ...], limit: int) -> asyncio.Task:
         key = (round(center.lat, 5), round(center.lng, 5), tags, radius_m, limit)
@@ -189,6 +261,14 @@ class OsmMapClient:
         return out
 
     async def reverse_geocode(self, point: LatLng) -> list[GeocodeResult]:
+        try:
+            return await self._photon_reverse(point)
+        except GoogleError as e:
+            if self._nominatim is None or not is_outage(e):
+                raise
+            return await self._nominatim.reverse(point)
+
+    async def _photon_reverse(self, point: LatLng) -> list[GeocodeResult]:
         data = await self._get("/reverse", [("lat", f"{point.lat:.6f}"), ("lon", f"{point.lng:.6f}"), ("lang", "en")])
         feats = data.get("features") or []
         if not feats:
@@ -208,6 +288,18 @@ class OsmMapClient:
         return [GeocodeResult(label=p.get("name", ""), lat=point.lat, lng=point.lng, components=comps)]
 
     async def geocode(self, address: str) -> list[GeocodeResult]:
+        try:
+            return await self._photon_geocode(address)
+        except GoogleError as e:
+            if self._nominatim is None or not is_outage(e):
+                raise
+            found = await self._nominatim.search(address, limit=5)
+            return [
+                GeocodeResult(label=", ".join(x for x in (f["name"], f["secondary"]) if x), lat=f["lat"], lng=f["lng"], components=[])
+                for f in found
+            ]
+
+    async def _photon_geocode(self, address: str) -> list[GeocodeResult]:
         data = await self._get("/api", [("q", address), ("limit", "5"), ("lang", "en")])
         out = []
         for f in data.get("features") or []:
