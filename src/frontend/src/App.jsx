@@ -82,14 +82,41 @@ export default function App() {
     // Free hosting puts the API to sleep when idle; say so instead of looking frozen.
     const WAKING = 'Waking up the server. On free hosting this can take up to a minute the first time…'
     const slow = setTimeout(() => setNotice(WAKING), 3500)
-    api
-      .health()
-      .then(setHealth)
-      .catch(() => setHealth({ ok: false, maps_configured: false }))
-      .finally(() => {
-        clearTimeout(slow)
-        setNotice((n) => (n === WAKING ? null : n))
-      })
+    // While the API wakes, Render answers 502 for a while: keep asking instead of
+    // concluding after one failure that the server has no place search.
+    let cancelled = false
+    let retry
+    let markUp
+    const up = new Promise((resolve) => (markUp = resolve)) // the API answered, or we gave up
+    const started = Date.now()
+    const check = (wait) =>
+      api
+        .health()
+        .then((h) => {
+          if (cancelled) return
+          clearTimeout(slow)
+          setNotice((n) => (n === WAKING ? null : n))
+          setHealth(h)
+          markUp()
+        })
+        .catch(() => {
+          if (cancelled) return
+          if (Date.now() - started < 150_000) {
+            setNotice((n) => n || WAKING)
+            retry = setTimeout(() => check(Math.min(wait * 1.5, 10_000)), wait)
+            return
+          }
+          clearTimeout(slow)
+          setNotice((n) => (n === WAKING ? "The server isn't answering right now. Try again in a minute." : n))
+          setHealth({ ok: false })
+          markUp()
+        })
+    check(2000)
+    const stop = () => {
+      cancelled = true
+      clearTimeout(retry)
+      clearTimeout(slow)
+    }
     // City-level location from the IP address: ranks search suggestions and
     // centres the first map view. Never stored. If the visitor already shared
     // their exact location in this tab, that wins.
@@ -110,10 +137,12 @@ export default function App() {
     const g = readGroupParam()
     if (!g) {
       setBooting(false)
-      return
+      return stop
     }
     ;(async () => {
       try {
+        await up // an invite link opened while the API sleeps waits for it to wake
+        if (cancelled) return
         const group = await api.getGroup(g)
         setGroupId(group.id)
         setSettings({
@@ -138,9 +167,10 @@ export default function App() {
           setError(toError(e))
         }
       } finally {
-        setBooting(false)
+        if (!cancelled) setBooting(false)
       }
     })()
+    return stop
   }, [])
 
   // ---- keep the people list fresh when friends join from the link --------
@@ -403,8 +433,11 @@ export default function App() {
     )
   }, [ipGuess])
 
-  const mapsConfigured = health?.maps_configured ?? true
-  const searchAvailable = health ? Boolean(health.search) : true
+  // Until the API has answered (or if it could not be reached), assume search
+  // works: hiding it because of a sleeping server looked like a missing feature.
+  const healthKnown = Boolean(health?.ok)
+  const mapsConfigured = healthKnown ? Boolean(health.maps_configured) : true
+  const searchAvailable = healthKnown ? Boolean(health.search) : true
   const memberCentre = useMemo(() => centreOf(members), [members])
   const bias = memberCentre || (approx ? { lat: approx.lat, lng: approx.lng } : null)
   const biasLabel = members.length
