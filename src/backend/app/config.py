@@ -37,6 +37,19 @@ class Settings(BaseSettings):
     w_std: float = 0.3
     w_mean: float = 0.2
 
+    # Lively areas: the fair spot can land in a quiet street with few places. If a
+    # spot about lively_ring_km away has clearly more cafes, restaurants, bars and
+    # pubs within lively_radius_m, and the longest trip grows by at most
+    # lively_max_extra_min, the search moves there. OpenStreetMap mode only
+    # (counts come from Photon, else Nominatim), cached for two weeks.
+    lively_enabled: bool = True
+    lively_radius_m: int = 500
+    lively_ring_km: float = 1.2
+    lively_enough_places: int = 30  # a spot with this many is lively already: no search
+    lively_min_places: int = 15  # a new spot needs at least this many ...
+    lively_gain: float = 1.5  # ... and this many times the fair spot's count
+    lively_max_extra_min: float = 5.0
+
     # Venues
     venue_radius_steps: str = "800,1500,3000"
     min_venues_per_zone: int = 3
