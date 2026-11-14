@@ -159,6 +159,10 @@ a {
 .panel {
   grid-column: 1;
   grid-row: 1;
+  /* The panel scrolls on its own. Positioned here, screen-reader-only labels
+     (.sr-only, absolute) scroll with it instead of stretching the page below the
+     app, which left an empty band when the page was scrolled. */
+  position: relative;
   overflow-y: auto;
   padding: 16px;
   display: flex;
