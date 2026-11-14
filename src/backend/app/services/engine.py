@@ -165,6 +165,7 @@ class _Counting:
         self.matrix_elements = 0
         self.places_calls = 0
         self.geocode_calls = 0
+        self.lively_calls = 0  # nearby place counts for the lively-area check
 
     async def route_matrix(self, origins, destinations, mode, **kw) -> Matrix:
         out: Matrix = [[None] * len(destinations) for _ in origins]
@@ -186,12 +187,21 @@ class _Counting:
         self.geocode_calls += 1
         return await self.inner.reverse_geocode(point)
 
+    @property
+    def counts_places(self) -> bool:
+        return callable(getattr(self.inner, "count_places", None))
+
+    async def count_places(self, points, radius_m) -> list[int | None]:
+        self.lively_calls += len(points)
+        return await self.inner.count_places(points, radius_m)
+
     def usage(self) -> dict:
         return {
             "route_matrix_requests": self.matrix_calls,
             "route_matrix_elements": self.matrix_elements,
             "places_calls": self.places_calls,
             "geocode_calls": self.geocode_calls,
+            "lively_calls": self.lively_calls,
         }
 
 
@@ -360,11 +370,11 @@ async def find_meeting_point(
     # 4 + 5. Region and zone matrix in parallel --------------------------
     t1 = time.perf_counter()
 
-    async def _region() -> dict:
+    async def _region(at: LatLng = centre) -> dict:
         if counting is None:
             return empty_region()
         try:
-            return region_from_results(await counting.reverse_geocode(centre))
+            return region_from_results(await counting.reverse_geocode(at))
         except GoogleError as e:
             log.warning("reverse geocode failed (%s)", e.kind)
             return empty_region()
@@ -401,6 +411,25 @@ async def find_meeting_point(
         if len(top) >= s.top_zones + (s.load_more_extra_zones if wider else 0):
             break
 
+    # 6b. Move the fairest zone to a livelier spot nearby -------------------
+    # (OpenStreetMap mode: counting needs no paid calls and travel times are
+    # estimates, so trying a few nearby spots costs nothing.)
+    if s.lively_enabled and counting is not None and counting.counts_places and counting.estimates_only:
+        tl = time.perf_counter()
+        moved = await _move_to_lively(ctx, counting, top[0], ids)
+        if moved is not None:
+            top[0] = moved
+            new_region = await _region(moved["point"])
+            if new_region.get("area") or new_region.get("locality"):
+                region = new_region
+            extra = moved["lively"]["extra_minutes"]
+            ctx.warn(
+                "LIVELY_AREA",
+                "Moved to a livelier area nearby with more places to choose from"
+                + (f" (+{extra:g} min on the longest trip)." if extra >= 0.5 else "."),
+            )
+        timings["lively_ms"] = (time.perf_counter() - tl) * 1000
+
     zones_out = [
         {
             "lat": round(z["point"].lat, 6),
@@ -408,6 +437,7 @@ async def find_meeting_point(
             "score": round(z["score"], 1),
             "fairness": round(z["fairness"], 2),
             "minutes": {k: round(v, 1) for k, v in z["minutes"].items()},
+            **({"lively": z["lively"]} if "lively" in z else {}),
         }
         for z in top
     ]
@@ -513,6 +543,51 @@ async def find_meeting_point(
         "more_available": counting is not None and bool(inp.venue_types),
         "usage": counting.usage() if counting else None,
         "timings_ms": {k: round(v, 1) for k, v in timings.items()},
+    }
+
+
+async def _move_to_lively(ctx: _Ctx, maps: _Counting, zone: dict, ids: list[str]) -> dict | None:
+    """The busiest spot about lively_ring_km around `zone`, if it is clearly livelier
+    and costs the longest trip at most lively_max_extra_min. None: stay put."""
+    s = ctx.settings
+    try:
+        [base] = await maps.count_places([zone["point"]], s.lively_radius_m)
+        if base is None or base >= s.lively_enough_places:
+            return None  # can't tell, or lively already
+        ring = geo.candidate_ring(zone["point"], s.lively_ring_km, 6)
+        counts = await maps.count_places(ring, s.lively_radius_m)
+    except GoogleError as e:
+        log.warning("lively area check failed (%s)", e.kind)
+        return None
+    rows = await _travel_matrix(ctx, ring, traffic_aware=False)
+    longest = max(zone["minutes"].values())
+    best = None
+    for j, (p, c) in enumerate(zip(ring, counts)):
+        if c is None or c < s.lively_min_places or c < base * s.lively_gain or c < base + 5:
+            continue
+        mins = _column_minutes(rows, ids, j)
+        if mins is None:
+            continue
+        extra = max(mins) - longest
+        if extra > s.lively_max_extra_min:
+            continue
+        key = (-c, extra)
+        if best is None or key < best[0]:
+            best = (key, p, c, mins, extra)
+    if best is None:
+        return None
+    _, p, c, mins, extra = best
+    return {
+        "point": p,
+        "score": fairness_score(mins, s.w_max, s.w_std, s.w_mean),
+        "fairness": fairness_index(mins),
+        "minutes": dict(zip(ids, mins)),
+        "lively": {
+            "places": c,
+            "places_before": base,
+            "moved_km": round(geo.haversine_km(zone["point"], p), 2),
+            "extra_minutes": round(max(0.0, extra), 1),
+        },
     }
 
 

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import Sequence
 
 import httpx
@@ -61,6 +62,10 @@ TAG_TO_TYPE = {t: OSM_VALUE_TO_TYPE[t.split(":", 1)[1]] for tags in TYPE_TO_OSM.
 # Fetch once at this radius (nearest first) and reuse it when the engine widens
 # its search step by step (800 m -> 1.5 km -> 3 km).
 FETCH_RADIUS_M = 3000.0
+# What makes an area lively: places people go to sit together.
+LIVELY_TAGS = ("amenity:cafe", "amenity:restaurant", "amenity:bar", "amenity:pub", "amenity:fast_food")
+LIVELY_TTL_S = 14 * 24 * 3600  # busy areas don't move: keep counts for two weeks
+_lively_cache: dict[tuple, tuple[int, float]] = {}
 # The backups answer per box and at most 40 a kind (Nominatim): a smaller box
 # keeps those 40 close to the spot; a wider search asks again.
 BACKUP_FETCH_RADIUS_M = 1500.0
@@ -210,6 +215,48 @@ class OsmMapClient:
             found = await self._overpass.nearby(center, fetch_r, tags)
             return [(dist, overpass_place(el, TAG_TO_TYPE)) for dist, el in found]
         raise first or GoogleError("unavailable", "no backup for places")
+
+    async def count_places(self, points: Sequence[LatLng], radius_m: float) -> list[int | None]:
+        """How many cafes, restaurants, bars and pubs are within `radius_m` of each point
+        (Photon counts up to 50, Nominatim restaurants up to 40). None: unknown."""
+        out: list[int | None] = []
+        for p in points:
+            key = (round(p.lat, 3), round(p.lng, 3), int(radius_m))
+            hit = _lively_cache.get(key)
+            if hit is not None and time.time() - hit[1] < LIVELY_TTL_S:
+                out.append(hit[0])
+                continue
+            n = await self._count_one(p, radius_m)
+            if n is not None:
+                _lively_cache[key] = (n, time.time())
+            out.append(n)
+        return out
+
+    async def _count_one(self, p: LatLng, radius_m: float) -> int | None:
+        params = [
+            ("lat", f"{p.lat:.6f}"),
+            ("lon", f"{p.lng:.6f}"),
+            ("radius", f"{radius_m / 1000:.2f}"),
+            ("limit", "50"),
+            ("lang", "en"),
+        ] + [("osm_tag", t) for t in LIVELY_TAGS]
+        try:
+            data = await self._get("/reverse", params)
+        except GoogleError as e:
+            if self._nominatim is None or not is_outage(e):
+                return None
+        else:
+            n = 0
+            for f in data.get("features") or []:
+                coords = (f.get("geometry") or {}).get("coordinates") or []
+                if len(coords) == 2 and (f.get("properties") or {}).get("name"):
+                    if geo.haversine_km(p, LatLng(float(coords[1]), float(coords[0]))) * 1000 <= radius_m * 1.05:
+                        n += 1
+            return n
+        try:  # Photon is down: restaurants from Nominatim stand in for the whole count
+            return len(await self._nominatim.nearby(p, radius_m, ["amenity:restaurant"], TAG_TO_TYPE))
+        except GoogleError:
+            return None
 
     def _cached_nearby(self, center: LatLng, radius_m: float, tags: tuple[str, ...], limit: int) -> asyncio.Task:
         key = (round(center.lat, 5), round(center.lng, 5), tags, radius_m, limit)
